@@ -328,6 +328,9 @@ class Names
      *
      * @returns A smart pointer to the named object converted to
      *          the requested type.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename T>
     static Ptr<T> Find(std::string path);

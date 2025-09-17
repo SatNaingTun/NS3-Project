@@ -315,6 +315,9 @@ class FrameExchangeManager : public Object
 
     /**
      * @return the remote station manager operating on our link
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Ptr<WifiRemoteStationManager> GetWifiRemoteStationManager() const;
 

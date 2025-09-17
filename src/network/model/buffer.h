@@ -112,6 +112,9 @@ class Buffer
          * This method works only if the two iterators point
          * to the same underlying buffer. Debug builds ensure
          * this with an assert.
+         *
+         * Caller graph was not generated because of its size.
+         * @hidecallergraph
          */
         uint32_t GetDistanceFrom(const Iterator& o) const;
 
@@ -131,6 +134,9 @@ class Buffer
          *
          * Write the data in buffer and advance the iterator position
          * by one byte.
+         *
+         * Caller graph was not generated because of its size.
+         * @hidecallergraph
          */
         inline void WriteU8(uint8_t data);
         /**
@@ -139,6 +145,9 @@ class Buffer
          *
          * Write the data in buffer len times and advance the iterator position
          * by len byte.
+         *
+         * Caller graph was not generated because of its size.
+         * @hidecallergraph
          */
         inline void WriteU8(uint8_t data, uint32_t len);
         /**
@@ -201,6 +210,9 @@ class Buffer
          * Write the data in buffer and advance the iterator position
          * by two bytes. The data is written in network order and the
          * input data is expected to be in host order.
+         *
+         * Caller graph was not generated because of its size.
+         * @hidecallergraph
          */
         inline void WriteHtonU16(uint16_t data);
         /**
@@ -252,6 +264,9 @@ class Buffer
          *
          * Read data and advance the Iterator by the number of bytes
          * read.
+         *
+         * Caller graph was not generated because of its size.
+         * @hidecallergraph
          */
         inline uint8_t ReadU8();
         /**
@@ -284,6 +299,9 @@ class Buffer
          * Read data and advance the Iterator by the number of bytes
          * read.
          * The data is read in network format and returned in host format.
+         *
+         * Caller graph was not generated because of its size.
+         * @hidecallergraph
          */
         inline uint16_t ReadNtohU16();
         /**

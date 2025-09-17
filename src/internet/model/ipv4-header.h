@@ -208,6 +208,9 @@ class Ipv4Header : public Header
     Ipv4Address GetSource() const;
     /**
      * @returns the destination address of this packet
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Ipv4Address GetDestination() const;
 

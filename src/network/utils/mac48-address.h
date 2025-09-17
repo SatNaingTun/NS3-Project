@@ -68,6 +68,9 @@ class Mac48Address
      * This function performs a type check and asserts if the
      * type of the input address is not compatible with an
      * Mac48Address.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static Mac48Address ConvertFrom(const Address& address);
     /**
@@ -115,6 +118,9 @@ class Mac48Address
 
     /**
      * @returns the broadcast address
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static Mac48Address GetBroadcast();
 

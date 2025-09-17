@@ -174,6 +174,9 @@ std::istream& operator>>(std::istream& is, ObjectFactory& factory);
  *
  * The args sequence can be made of any number of pairs, each consisting of a
  * name (of std::string type) followed by a value (of const AttributeValue & type).
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 template <typename T, typename... Args>
 Ptr<T> CreateObjectWithAttributes(Args... args);

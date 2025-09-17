@@ -190,6 +190,9 @@ class Ipv4Address
     static Ipv4Address GetZero();
     /**
      * @return the 0.0.0.0 address
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static Ipv4Address GetAny();
     /**

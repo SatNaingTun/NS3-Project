@@ -39,8 +39,10 @@ namespace ns3
  * @see AttributeValue
  *
  * Call graph was not generated because of its size.
- * @hidecallergraph
  * @hidecallgraph
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 class ObjectPtrContainerValue : public AttributeValue
 {

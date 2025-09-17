@@ -125,6 +125,9 @@ class PointerChecker : public AttributeChecker
  * Create a PointerChecker for a type.
  * @tparam T \explicit The underlying type.
  * @returns The PointerChecker.
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 template <typename T>
 Ptr<AttributeChecker> MakePointerChecker();
@@ -256,12 +259,18 @@ ATTRIBUTE_ACCESSOR_DEFINE(Pointer);
  * \fn ns3::Ptr<const ns3::AttributeAccessor> ns3::MakePointerAccessor (T1 a1)
  * @copydoc ns3::MakeAccessorHelper(T1)
  * @see AttributeAccessor
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 /**
  * @ingroup attribute_Pointer
  * \fn ns3::Ptr<const ns3::AttributeAccessor> ns3::MakePointerAccessor (T1 a1, T2 a2)
  * @copydoc ns3::MakeAccessorHelper(T1,T2)
  * @see AttributeAccessor
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 
 template <typename T>

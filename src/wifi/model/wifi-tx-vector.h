@@ -152,12 +152,18 @@ class WifiTxVector
      *
      * @param staId the station ID for MU
      * @returns the selected payload transmission mode
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     WifiMode GetMode(uint16_t staId = SU_STA_ID) const;
     /**
      * Sets the selected payload transmission mode
      *
      * @param mode the payload WifiMode
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     void SetMode(WifiMode mode);
     /**
@@ -197,6 +203,9 @@ class WifiTxVector
     void SetPreambleType(WifiPreamble preamble);
     /**
      * @returns the channel width
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     MHz_u GetChannelWidth() const;
     /**

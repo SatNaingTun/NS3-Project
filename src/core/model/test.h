@@ -1045,6 +1045,9 @@ class TestRunnerImpl;
  * method, and use the NS_TEST_* macros within DoRun.
  *
  * @see sample-test-suite.cc
+ *
+ * Inheritance graph was not generated because of its size.
+ * @hideinheritancegraph
  */
 class TestCase
 {
@@ -1079,11 +1082,22 @@ class TestCase
     virtual ~TestCase();
 
     // Delete copy constructor and assignment operator to avoid misuse
+
+    // Doxygen erroneously attributes all TestCases to this c'tor,
+    // hence we have to hide the caller graph
+    /**
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
+     */
     TestCase(const TestCase&) = delete;
+
     TestCase& operator=(const TestCase&) = delete;
 
     /**
      * @return The name of this test
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     std::string GetName() const;
 
@@ -1092,6 +1106,9 @@ class TestCase
      * @brief Constructor.
      *
      * @param [in] name The name of the new TestCase created
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     TestCase(std::string name);
 
@@ -1101,6 +1118,9 @@ class TestCase
      * @param [in] testCase Pointer to the TestCase object to be added.
      * @param [in] duration Amount of time this test takes to execute
      *             (defaults to QUICK).
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     void AddTestCase(TestCase* testCase, Duration duration = Duration::QUICK);
 
@@ -1262,6 +1282,9 @@ class TestCase
  * @brief A suite of tests to run.
  *
  * @see sample-test-suite.cc
+ *
+ * Inheritance graph was not generated because of its size.
+ * @hideinheritancegraph
  */
 class TestSuite : public TestCase
 {
@@ -1302,6 +1325,9 @@ class TestSuite : public TestCase
      *
      * @param [in] name The name of the test suite.
      * @param [in] type The TestType of the test suite (defaults to UNIT test).
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     TestSuite(std::string name, Type type = Type::UNIT);
 

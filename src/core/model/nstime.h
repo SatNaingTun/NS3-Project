@@ -391,6 +391,10 @@ class CORE_EXPORT Time
         return ToDouble(Time::MIN);
     }
 
+    /**
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
+     */
     inline double GetSeconds() const
     {
         return ToDouble(Time::S);
@@ -645,6 +649,9 @@ class CORE_EXPORT Time
      *
      * @param [in] unit The unit to use.
      * @return The Time with embedded unit.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     TimeWithUnit As(const Unit unit = Time::AUTO) const;
 
@@ -1315,6 +1322,9 @@ std::istream& operator>>(std::istream& is, Time& time);
  * Construct a Time in the indicated unit.
  * @param [in] value The value
  * @return The Time
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  * @{
  */
 inline Time
@@ -1365,48 +1375,80 @@ Minutes(int64x64_t value)
     return Time::From(value, Time::MIN);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 Seconds(double value)
 {
     return Time::FromDouble(value, Time::S);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 Seconds(int64x64_t value)
 {
     return Time::From(value, Time::S);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 MilliSeconds(uint64_t value)
 {
     return Time::FromInteger(value, Time::MS);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 MilliSeconds(int64x64_t value)
 {
     return Time::From(value, Time::MS);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 MicroSeconds(uint64_t value)
 {
     return Time::FromInteger(value, Time::US);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 MicroSeconds(int64x64_t value)
 {
     return Time::From(value, Time::US);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 NanoSeconds(uint64_t value)
 {
     return Time::FromInteger(value, Time::NS);
 }
 
+/**
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
+ */
 inline Time
 NanoSeconds(int64x64_t value)
 {

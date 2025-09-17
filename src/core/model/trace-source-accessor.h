@@ -101,6 +101,9 @@ class TraceSourceAccessor : public SimpleRefCount<TraceSourceAccessor>
  *
  * @param [in] a The trace source
  * @returns The TraceSourceAccessor
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 template <typename T>
 Ptr<const TraceSourceAccessor> MakeTraceSourceAccessor(T a);

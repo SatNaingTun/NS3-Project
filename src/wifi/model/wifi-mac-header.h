@@ -148,6 +148,9 @@ class WifiMacHeader : public Header
      * Fill the Address 1 field with the given address.
      *
      * @param address the address to be used in the Address 1 field
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     void SetAddr1(Mac48Address address);
     /**
@@ -175,6 +178,9 @@ class WifiMacHeader : public Header
      * @param type the WifiMacType for the header
      * @param resetToDsFromDs whether the ToDs and FromDs flags
      *        should be reset.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     virtual void SetType(WifiMacType type, bool resetToDsFromDs = true);
     /**
@@ -293,6 +299,9 @@ class WifiMacHeader : public Header
      * Return the address in the Address 1 field.
      *
      * @return the address in the Address 1 field
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Mac48Address GetAddr1() const;
     /**

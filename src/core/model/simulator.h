@@ -111,6 +111,9 @@ class Simulator
      * After this method has been invoked, it is actually possible
      * to restart a new simulation with a set of calls to Simulator::Run,
      * Simulator::Schedule and Simulator::ScheduleWithContext.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static void Destroy();
 
@@ -134,6 +137,9 @@ class Simulator
      *   - The user called Simulator::Stop with a stop time and the
      *     expiration time of the next event to be processed
      *     is greater than or equal to the stop time.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static void Run();
 
@@ -144,6 +150,9 @@ class Simulator
      * If a running event invokes this method, it will be the last
      * event executed by the Simulator::Run method before
      * returning to the caller.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static void Stop();
 
@@ -156,6 +165,9 @@ class Simulator
      * current simulation time.
      * @param [in] delay The stop time, relative to the current time.
      * @return The stop EventId.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static EventId Stop(const Time& delay);
 
@@ -224,6 +236,9 @@ class Simulator
      * @param [in] f The function to invoke.
      * @param [in] args Arguments to pass to MakeEvent.
      * @returns The id for the scheduled event.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename FUNC,
               std::enable_if_t<!std::is_convertible_v<FUNC, Ptr<EventImpl>>, int> = 0,
@@ -245,6 +260,9 @@ class Simulator
      * @param [in] f The function to invoke.
      * @param [in] args Arguments to pass to the invoked function.
      * @returns The id for the scheduled event.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename... Us, typename... Ts>
     static EventId Schedule(const Time& delay, void (*f)(Us...), Ts&&... args);
@@ -270,6 +288,9 @@ class Simulator
      * @param [in] delay The relative expiration time of the event.
      * @param [in] f The function to invoke.
      * @param [in] args Arguments to pass to MakeEvent.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename FUNC,
               std::enable_if_t<!std::is_convertible_v<FUNC, Ptr<EventImpl>>, int> = 0,
@@ -288,6 +309,9 @@ class Simulator
      * @param [in] delay The relative expiration time of the event.
      * @param [in] f The function to invoke.
      * @param [in] args Arguments to pass to the invoked function.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename... Us, typename... Ts>
     static void ScheduleWithContext(uint32_t context,
@@ -313,6 +337,9 @@ class Simulator
      * @param [in] f The function to invoke.
      * @param [in] args Arguments to pass to the invoked function.
      * @return The EventId of the scheduled event.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename FUNC,
               std::enable_if_t<!std::is_convertible_v<FUNC, Ptr<EventImpl>>, int> = 0,
@@ -330,6 +357,9 @@ class Simulator
      * @param [in] f The function to invoke.
      * @param [in] args Arguments to pass to MakeEvent.
      * @return The EventId of the scheduled event.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename... Us, typename... Ts>
     static EventId ScheduleNow(void (*f)(Us...), Ts&&... args);
@@ -428,6 +458,9 @@ class Simulator
      * Return the current simulation virtual time.
      *
      * @returns The current virtual time.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static Time Now();
 
@@ -457,6 +490,9 @@ class Simulator
      * @param [in] delay Delay until the event expires.
      * @param [in] event The event to schedule.
      * @returns A unique identifier for the newly-scheduled event.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static EventId Schedule(const Time& delay, const Ptr<EventImpl>& event);
 
@@ -467,6 +503,9 @@ class Simulator
      * @param [in] delay Delay until the event expires.
      * @param [in] context Event context.
      * @param [in] event The event to schedule.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static void ScheduleWithContext(uint32_t context, const Time& delay, EventImpl* event);
 
@@ -484,6 +523,9 @@ class Simulator
      *
      * @param [in] event The event to schedule.
      * @returns A unique identifier for the newly-scheduled event.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static EventId ScheduleNow(const Ptr<EventImpl>& event);
 
@@ -537,6 +579,9 @@ class Simulator
  *   Simulator::Schedule (Seconds (2.0) - Now (), &my_function);
  * @endcode
  * @return The current simulation time.
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 Time Now();
 

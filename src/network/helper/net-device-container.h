@@ -159,6 +159,9 @@ class NetDeviceContainer
      *
      * @param i the index of the requested device pointer.
      * @returns the requested device pointer.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Ptr<NetDevice> Get(uint32_t i) const;
 
@@ -167,6 +170,9 @@ class NetDeviceContainer
      * this container.
      *
      * @param other The NetDeviceContainer to append.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     void Add(NetDeviceContainer other);
 

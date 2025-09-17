@@ -173,6 +173,9 @@ class EnumChecker : public AttributeChecker
  * @param [in] v  The default enum value.
  * @param [in] n  The corresponding name.
  * @param [in] args Any additional arguments.
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 template <typename T, typename... Ts>
 Ptr<const AttributeChecker>

@@ -44,6 +44,9 @@ class RngSeedManager
      * @note While the underlying RNG takes six integer values as a seed;
      * it is sufficient to set these all to the same integer, so we provide
      * a simpler interface here that just takes one integer.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static void SetSeed(uint32_t seed);
 
@@ -79,6 +82,9 @@ class RngSeedManager
      * @endcode
      *
      * @param [in] run The run number.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static void SetRun(uint64_t run);
     /**

@@ -120,6 +120,9 @@ class NodeContainer
      * @endcode
      *
      * @returns an iterator which refers to the first Node in the container.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Iterator Begin() const;
 
@@ -141,6 +144,9 @@ class NodeContainer
      * @endcode
      *
      * @returns an iterator which indicates an ending condition for a loop.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Iterator End() const;
 
@@ -186,6 +192,9 @@ class NodeContainer
      *
      * @param i the index of the requested node pointer.
      * @returns the requested node pointer.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     Ptr<Node> Get(uint32_t i) const;
 
@@ -198,6 +207,9 @@ class NodeContainer
      * automates that task.
      *
      * @param n The number of Nodes to create
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     void Create(uint32_t n);
 

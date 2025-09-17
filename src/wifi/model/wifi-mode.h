@@ -138,6 +138,9 @@ class WifiMode
      *
      * @returns the Modulation Class (Section 9.7.8 "Modulation classes"; IEEE 802.11-2012)
      * to which this WifiMode belongs.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     WifiModulationClass GetModulationClass() const;
     /**

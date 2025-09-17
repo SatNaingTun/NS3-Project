@@ -73,6 +73,9 @@ struct ObjectDeleter
  * all its aggregates. The DoDispose() method is always automatically
  * invoked from the Unref() method before destroying the Object,
  * even if the user did not call Dispose() directly.
+ *
+ * Inheritance graph was not generated because of its size.
+ * @hideinheritancegraph
  */
 class Object : public SimpleRefCount<Object, ObjectBase, ObjectDeleter>
 {
@@ -130,7 +133,10 @@ class Object : public SimpleRefCount<Object, ObjectBase, ObjectDeleter>
         std::vector<Ptr<Object>>::const_iterator m_uniAggrIter;
     };
 
-    /** Constructor. */
+    /**
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
+     */
     Object();
     /** Destructor. */
     ~Object() override;
@@ -144,6 +150,9 @@ class Object : public SimpleRefCount<Object, ObjectBase, ObjectDeleter>
      * @tparam T \explicit The type of the aggregated Object to retrieve.
      * @returns A pointer to the requested Object, or zero
      *          if it could not be found.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename T>
     inline Ptr<T> GetObject() const;
@@ -155,6 +164,9 @@ class Object : public SimpleRefCount<Object, ObjectBase, ObjectDeleter>
      * @param [in] tid The TypeId of the requested Object.
      * @returns A pointer to the requested Object with the specified TypeId,
      *          or zero if it could not be found.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename T>
     Ptr<T> GetObject(TypeId tid) const;
@@ -301,6 +313,9 @@ class Object : public SimpleRefCount<Object, ObjectBase, ObjectDeleter>
      * DoDispose() method.
      *
      * It is safe to call GetObject() from within this method.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     virtual void DoDispose();
     /**
@@ -613,6 +628,9 @@ CompleteConstruct(T* object)
  * @tparam T \explicit The type of the derived object to construct.
  * @param [in] args Arguments to pass to the constructor.
  * @return The derived object.
+ *
+ * Caller graph was not generated because of its size.
+ * @hidecallergraph
  */
 template <typename T, typename... Args>
 Ptr<T>

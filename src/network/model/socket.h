@@ -142,6 +142,9 @@ class Socket : public Object
      *
      * @param node The node on which to create the socket
      * @param tid The TypeId of a SocketFactory class to use
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static Ptr<Socket> CreateSocket(Ptr<Node> node, TypeId tid);
     /**

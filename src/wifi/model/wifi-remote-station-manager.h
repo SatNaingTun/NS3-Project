@@ -1559,6 +1559,9 @@ class WifiRemoteStationManager : public Object
      *
      * @param address the address of the station
      * @return WifiRemoteStationState corresponding to the address
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     std::shared_ptr<WifiRemoteStationState> LookupState(Mac48Address address) const;
     /**

@@ -132,6 +132,9 @@ class TypeId
      *
      * This method cannot fail: it will crash if the input
      * name is not a valid TypeId name.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     static TypeId LookupByName(std::string name);
     /**
@@ -244,6 +247,9 @@ class TypeId
      * Get the name.
      *
      * @returns The name of this interface.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     std::string GetName() const;
 
@@ -326,6 +332,9 @@ class TypeId
      *
      * Record in this TypeId which TypeId is the TypeId
      * of the base class of the subclass.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     TypeId SetParent(TypeId tid);
     /**
@@ -336,6 +345,9 @@ class TypeId
      *
      * Record in this TypeId which TypeId is the TypeId
      * of the base class of the subclass.
+     *
+     * Caller graph was not generated because of its size.
+     * @hidecallergraph
      */
     template <typename T>
     TypeId SetParent();
