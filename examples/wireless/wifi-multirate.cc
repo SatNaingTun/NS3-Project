@@ -29,6 +29,10 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("multirate");
 
+// unnamed namespace
+namespace
+{
+
 /**
  * WiFi multirate experiment class.
  *
@@ -679,6 +683,8 @@ Experiment::CommandSetup(int argc, char** argv)
     cmd.Parse(argc, argv);
     return true;
 }
+
+} // unnamed namespace
 
 int
 main(int argc, char* argv[])

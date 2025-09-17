@@ -43,6 +43,10 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("UanCwExample");
 
+// unnamed namespace
+namespace
+{
+
 Experiment::Experiment()
     : m_numNodes(15),
       m_dataRate(80),
@@ -246,6 +250,8 @@ Experiment::Run(UanHelper& uan)
         return m_data;
     }
 }
+
+} // unnamed namespace
 
 int
 main(int argc, char** argv)

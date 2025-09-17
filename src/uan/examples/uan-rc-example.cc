@@ -57,6 +57,10 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("UanRcExample");
 
+// unnamed namespace
+namespace
+{
+
 Experiment::Experiment()
     : m_simMin(1),
       m_simMax(1),
@@ -236,6 +240,8 @@ Experiment::Run(uint32_t param)
 
     return m_bytesTotal;
 }
+
+} // unnamed namespace
 
 int
 main(int argc, char* argv[])

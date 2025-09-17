@@ -23,6 +23,10 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("ClearChannelCmu");
 
+// unnamed namespace
+namespace
+{
+
 /**
  * WiFi clear channel cmu experiment class.
  *
@@ -97,6 +101,7 @@ Experiment::Experiment(std::string name)
     m_output.SetStyle(Gnuplot2dDataset::LINES);
 }
 
+[[maybe_unused]]
 void
 Experiment::SetPosition(Ptr<Node> node, Vector position)
 {
@@ -104,6 +109,7 @@ Experiment::SetPosition(Ptr<Node> node, Vector position)
     mobility->SetPosition(position);
 }
 
+[[maybe_unused]]
 Vector
 Experiment::GetPosition(Ptr<Node> node)
 {
@@ -210,6 +216,8 @@ Experiment::Run(const WifiHelper& wifi,
 
     return m_pktsTotal;
 }
+
+} // unnamed namespace
 
 int
 main(int argc, char* argv[])

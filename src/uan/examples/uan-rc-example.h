@@ -15,6 +15,10 @@
 
 using namespace ns3;
 
+// unnamed namespace
+namespace
+{
+
 /**
  * @ingroup uan
  *
@@ -98,5 +102,7 @@ class Experiment
     /** Default constructor. */
     Experiment();
 };
+
+} // unnamed namespace
 
 #endif /* UAN_RC_EXAMPLE_H */

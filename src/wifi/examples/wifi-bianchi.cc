@@ -54,6 +54,10 @@ NS_LOG_COMPONENT_DEFINE("WifiBianchi");
 
 using namespace ns3;
 
+// unnamed namespace
+namespace
+{
+
 std::ofstream cwTraceFile;      ///< File that traces CW over time
 std::ofstream backoffTraceFile; ///< File that traces backoff over time
 std::ofstream phyTxTraceFile;   ///< File that traces PHY transmissions  over time
@@ -2409,6 +2413,8 @@ class Experiment
      * @param staTxPower the STA transmit power
      * @param pktInterval the packet interval
      * @return 0 if all went well
+     *
+     * @hidecallgraph
      */
     int Run(const WifiHelper& wifi,
             const YansWifiPhyHelper& wifiPhy,
@@ -2842,6 +2848,8 @@ GetCount(const std::map<Mac48Address, uint64_t>& counter, Mac48Address addr)
     }
     return count;
 }
+
+} // unnamed namespace
 
 int
 main(int argc, char* argv[])

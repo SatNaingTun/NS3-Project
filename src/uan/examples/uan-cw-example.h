@@ -15,6 +15,10 @@
 
 using namespace ns3;
 
+// unnamed namespace
+namespace
+{
+
 /**
  * @ingroup uan
  * @brief Helper class for UAN CW MAC example.
@@ -79,5 +83,7 @@ class Experiment
     /** Default constructor. */
     Experiment();
 };
+
+} // unnamed namespace
 
 #endif /* UAN_CW_EXAMPLE_H */

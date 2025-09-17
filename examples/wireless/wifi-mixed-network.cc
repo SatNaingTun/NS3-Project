@@ -53,6 +53,10 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("MixedNetwork");
 
+// unnamed namespace
+namespace
+{
+
 /** Parameters */
 struct Parameters
 {
@@ -339,6 +343,8 @@ Experiment::Run(Parameters params)
     Simulator::Destroy();
     return throughput;
 }
+
+} // unnamed namespace
 
 int
 main(int argc, char* argv[])
