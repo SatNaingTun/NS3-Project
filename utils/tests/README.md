@@ -2,9 +2,9 @@
 
 ## Table of Contents
 
-1) [What is](#what-is)
-2) [Gitlab CI infrastructure](#gitlab-ci-infrastructure)
-3) [Test your changes](#test-your-changes)
+1. [What is](#what-is)
+2. [Gitlab CI infrastructure](#gitlab-ci-infrastructure)
+3. [Test your changes](#test-your-changes)
 
 ## What is
 
