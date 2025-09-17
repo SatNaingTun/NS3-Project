@@ -1432,7 +1432,7 @@ PrintMakeAccessors(std::ostream& os, const std::string& name)
     os << commentStart << sectAttr << functionStart << "ns3::Ptr<const ns3::AttributeAccessor> "
        << make << "(T1 a1)\n"
        << copyDoc << "ns3::MakeAccessorHelper(T1)\n"
-       << seeAlso << "AttributeAccessor\n"
+       << seeAlso << "ns3::AttributeAccessor\n"
        << "Caller graph was not generated because of its size.\n"
        << hideCallerGraph << commentStop;
 
@@ -1441,7 +1441,7 @@ PrintMakeAccessors(std::ostream& os, const std::string& name)
     os << commentStart << sectAttr << functionStart << "ns3::Ptr<const ns3::AttributeAccessor> "
        << make << "(T1 a1, T2 a2)\n"
        << copyDoc << "ns3::MakeAccessorHelper(T1,T2)\n"
-       << seeAlso << "AttributeAccessor\n"
+       << seeAlso << "ns3::AttributeAccessor\n"
        << "Caller graph was not generated because of its size.\n"
        << hideCallerGraph << commentStop;
 } // PrintMakeAccessors()
@@ -1468,8 +1468,9 @@ PrintMakeChecker(std::ostream& os, const std::string& name, const std::string& h
     os << classStart << " ns3::" << name << "Checker"
        << " \"" << header << "\"" << std::endl;
     os << "AttributeChecker implementation for " << name << "Value." << std::endl;
-    os << seeAlso << "AttributeChecker" << std::endl;
-    << "Caller graph was not generated because of its size.\n" os << hideCallerGraph;
+    os << seeAlso << "ns3::AttributeChecker" << std::endl;
+    << "Caller graph was not generated because of its size.\n";
+    os << hideCallerGraph;
     os << commentStop;
 
     // \ingroup attribute_<name>Value
@@ -1477,7 +1478,7 @@ PrintMakeChecker(std::ostream& os, const std::string& name, const std::string& h
     os << commentStart << sectAttr << functionStart << "ns3::Ptr<const ns3::AttributeChecker> "
        << make << "()\n"
        << returns << "The AttributeChecker.\n"
-       << seeAlso << "AttributeChecker\n"
+       << seeAlso << "ns3::AttributeChecker\n"
        << "Caller graph was not generated because of its size.\n"
        << hideCallerGraph << commentStop;
 } // PrintMakeChecker()

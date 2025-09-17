@@ -43,7 +43,7 @@ TableBasedErrorRateModel::GetTypeId()
             .AddAttribute("FallbackErrorRateModel",
                           "Ptr to the fallback error rate model to be used when no matching value "
                           "is found in a table",
-                          PointerValue(CreateObject<YansErrorRateModel>()),
+                          StringValue("ns3::YansErrorRateModel"),
                           MakePointerAccessor(&TableBasedErrorRateModel::m_fallbackErrorModel),
                           MakePointerChecker<ErrorRateModel>())
             .AddAttribute("SizeThreshold",

@@ -12,6 +12,7 @@
 #include "ns3/double.h"
 #include "ns3/log.h"
 #include "ns3/pointer.h"
+#include "ns3/string.h"
 #include "ns3/uinteger.h"
 
 namespace ns3
@@ -45,7 +46,7 @@ PhasedArrayModel::GetTypeId()
             .SetGroupName("Antenna")
             .AddAttribute("AntennaElement",
                           "A pointer to the antenna element used by the phased array",
-                          PointerValue(CreateObject<IsotropicAntennaModel>()),
+                          StringValue("ns3::IsotropicAntennaModel"),
                           MakePointerAccessor(&PhasedArrayModel::m_antennaElement),
                           MakePointerChecker<AntennaModel>());
     return tid;

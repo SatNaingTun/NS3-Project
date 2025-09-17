@@ -46,6 +46,14 @@ NS_LOG_COMPONENT_DEFINE("DsrRouteCache");
 namespace dsr
 {
 
+/**
+ * @ingroup dsr
+ * @brief Compare route cache entries by hop count and priority,
+ *        equivalent to comparing the expire time.
+ * @param a The first route cache entry
+ * @param b The second route canche entry
+ * @returns `true` if `a < b`
+ */
 bool
 CompareRoutesBoth(const DsrRouteCacheEntry& a, const DsrRouteCacheEntry& b)
 {
@@ -55,6 +63,13 @@ CompareRoutesBoth(const DsrRouteCacheEntry& a, const DsrRouteCacheEntry& b)
             (a.GetExpireTime() > b.GetExpireTime()));
 }
 
+/**
+ * @ingroup dsr
+ * @brief Compare route cache entries by hop count only
+ * @param a The first route cache entry
+ * @param b The second route canche entry
+ * @returns `true` if `a < b`
+ */
 bool
 CompareRoutesHops(const DsrRouteCacheEntry& a, const DsrRouteCacheEntry& b)
 {
@@ -62,6 +77,13 @@ CompareRoutesHops(const DsrRouteCacheEntry& a, const DsrRouteCacheEntry& b)
     return a.GetVector().size() < b.GetVector().size();
 }
 
+/**
+ * @ingroup dsr
+ * @brief Compare route cache entries by hop priority only.
+ * @param a The first route cache entry
+ * @param b The second route canche entry
+ * @returns `true` if `a < b`
+ */
 bool
 CompareRoutesExpire(const DsrRouteCacheEntry& a, const DsrRouteCacheEntry& b)
 {
@@ -98,8 +120,6 @@ DsrLinkStab::Print() const
 {
     NS_LOG_LOGIC("LifeTime: " << GetLinkStability().As(Time::S));
 }
-
-typedef std::list<DsrRouteCacheEntry>::value_type route_pair;
 
 DsrRouteCacheEntry::DsrRouteCacheEntry(IP_VECTOR const& ip, Ipv4Address dst, Time exp)
     : m_ackTimer(Timer::CANCEL_ON_DESTROY),

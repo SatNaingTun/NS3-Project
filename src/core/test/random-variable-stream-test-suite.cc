@@ -2888,7 +2888,7 @@ BinomialAntitheticTestCase::DoRun()
 }
 
 /**
- * @ingroup rng-test
+ * @ingroup rng-tests
  * @ingroup tests
  *
  * @brief Test the Shuffle function
