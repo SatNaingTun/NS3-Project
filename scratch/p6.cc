@@ -4,19 +4,24 @@
 #include "ns3/internet-module.h"
 #include "ns3/point-to-point-module.h"
 #include "ns3/applications-module.h"
+#include "ns3/mobility-module.h"
+#include "ns3/wifi-module.h"
 #include "ns3/ipv4-global-routing-helper.h"
 #include "ns3/netanim-module.h"
 
 // Default Network Topology
-//     10.1.1.0
-// n0 .............. n1  n2  n3  n4
-//    point-to-point |   |  |   |
-//                   ==============
-//                    LAN 10.2.1.0-csma
+// Wifi 10.1.3.0
+//          AP
+//   .   .   .     .
+//   |   |    |    |   10.1.1.0
+//  n5  n6  n7 n0 .............. n1  n2  n3  n4
+//                point-to-point |   |  |   |
+//                               ==============
+//                                LAN 10.1.2.0-csma
 
 using namespace ns3;
 
-NS_LOG_COMPONENT_DEFINE("ThirdhScriptExample");
+NS_LOG_COMPONENT_DEFINE("ThirdScriptExample");
 
 int main(int argc, char *argv[])
 {
@@ -26,10 +31,6 @@ int main(int argc, char *argv[])
     NodeContainer p2pNodes;
     p2pNodes.Create(2);
 
-    NodeContainer csmaNodes;
-    csmaNodes.Add(p2pNodes.Get(1));
-    csmaNodes.Create(3);
-
     PointToPointHelper pointToPoint;
     pointToPoint.SetDeviceAttribute("DataRate",StringValue("5Mbps"));
     pointToPoint.SetChannelAttribute("Delay",StringValue("2ms"));
@@ -38,6 +39,10 @@ int main(int argc, char *argv[])
     NetDeviceContainer p2pDevices;
     p2pDevices=pointToPoint.Install (p2pNodes);
 
+    NodeContainer csmaNodes;
+    csmaNodes.Add(p2pNodes.Get(1));
+    csmaNodes.Create(3);
+
     CsmaHelper csma;
     csma.SetChannelAttribute("DataRate",StringValue("100Mbps"));
     csma.SetChannelAttribute("Delay",TimeValue(NanoSeconds(6560)));
@@ -45,11 +50,59 @@ int main(int argc, char *argv[])
     NetDeviceContainer csmaDevices;
     csmaDevices=csma.Install(csmaNodes);
 
+    NodeContainer wifiStaNodes;
+    wifiStaNodes.Create(3);
+    NodeContainer wifiApNode= p2pNodes.Get(0);
+
+    YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
+    YansWifiPhyHelper phy= YansWifiPhyHelper();
+    phy.SetChannel(channel.Create());
+
+    WifiHelper wifi;
+    wifi.SetRemoteStationManager("ns3::ArfWifiManager");
+
+
+
+    WifiMacHelper mac;
+    Ssid ssid=Ssid("ns-3-ssid");
+
+    mac.SetType("ns3::StaWifiMac",
+        "Ssid",SsidValue(ssid),
+        "ActiveProbing",BooleanValue(false));
     
+    
+
+    NetDeviceContainer staDevices;
+    staDevices= wifi.Install(phy,mac,wifiStaNodes);
+
+    mac.SetType("ns3::ApWifiMac",
+        "Ssid",SsidValue(ssid));
+
+    NetDeviceContainer apDevices;
+    apDevices=wifi.Install(phy,mac,wifiApNode);
+
+    MobilityHelper mobility;
+    mobility.SetPositionAllocator("ns3::GridPositionAllocator",
+                                  "MinX",DoubleValue(0.0),
+                                  "MinY",DoubleValue(5.0),
+                                  "DeltaX",DoubleValue(5.0),
+                                  "DeltaY",DoubleValue(10.0),
+                                  "GridWidth",UintegerValue(3),
+                                  "LayoutType",StringValue("RowFirst"));
+    
+    mobility.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+                          "Bounds", RectangleValue(Rectangle(-50,50,-50,50)));
+
+    
+    mobility.Install(wifiStaNodes);
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(wifiApNode);
+
     InternetStackHelper stack;
-    stack.Install(p2pNodes.Get(0));
     stack.Install(csmaNodes);
-    
+    stack.Install(wifiApNode);
+    stack.Install(wifiStaNodes);
+      
 
     Ipv4AddressHelper address;
     address.SetBase("10.1.1.0","255.255.255.0");
@@ -57,18 +110,21 @@ int main(int argc, char *argv[])
     Ipv4InterfaceContainer p2pInterfaces;
     p2pInterfaces=address.Assign(p2pDevices);
 
-    address.SetBase("10.2.1.0","255.255.255.0");
+    address.SetBase("10.1.2.0","255.255.255.0");
     Ipv4InterfaceContainer csmaInterfacs;
     csmaInterfacs=address.Assign(csmaDevices);
+
+    address.SetBase("10.1.3.0","255.255.255.0");
+    address.Assign(staDevices);
+    address.Assign(apDevices);
     
     UdpEchoServerHelper echoServer(9);
     ApplicationContainer serverApps = echoServer.Install(csmaNodes.Get(3));
     serverApps.Start(Seconds(1.0));
     serverApps.Stop(Seconds(10.0));
 
-
     UdpEchoClientHelper echoClient(csmaInterfacs.GetAddress(3),9);
-    echoClient.SetAttribute("MaxPackets",UintegerValue(2));
+    echoClient.SetAttribute("MaxPackets",UintegerValue(1));
     echoClient.SetAttribute("Interval",TimeValue(Seconds(1.0)));
     echoClient.SetAttribute("PacketSize",UintegerValue(1024));
 
@@ -80,9 +136,10 @@ int main(int argc, char *argv[])
 
     pointToPoint.EnablePcapAll("outputs/p2p");
     csma.EnablePcapAll("outputs/csma");
+    phy.EnablePcapAll("output/wifi");
 
 
-    AnimationInterface anim("outputs/p3.xml");
+    AnimationInterface anim("outputs/p6.xml");
     anim.SetConstantPosition(p2pNodes.Get(0),10.0,10.0);
     anim.SetConstantPosition(csmaNodes.Get(0),20.0,20.0);
     anim.SetConstantPosition(csmaNodes.Get(1),30.0,30.0);
