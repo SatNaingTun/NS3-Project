@@ -4,5 +4,9 @@
 
 !nested-subdir/
 !subdir/
-!scratch-simulator.cc
+
 !CMakeLists.txt
+
+# Allow all .cc files in scratch/
+!scratch/*.cc
+!scratch-simulator.cc
