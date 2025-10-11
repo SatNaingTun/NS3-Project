@@ -93,7 +93,56 @@
             ],
             "externalConsole": false,
             "MIMode": "lldb"
+        },
+        {
+      "name": "Build ns-3 script",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/ns3",
+      "args": [
+        "run",
+        "${fileBasenameNoExtension}"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build active ns-3 script",
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "externalConsole": true,
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
         }
+      ]
+    },
+        {
+      "name": "Build and Run ns-3 script",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "${workspaceFolder}/ns3",
+      "args": [
+        "run",
+        "${fileBasenameNoExtension}"
+      ],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Build and Run active ns-3 script",
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "externalConsole": true,
+      "setupCommands": [
+        {
+          "description": "Enable pretty-printing for gdb",
+          "text": "-enable-pretty-printing",
+          "ignoreFailures": true
+        }
+      ]
+    }
+
+
+
     ],
     "inputs": [
         {
