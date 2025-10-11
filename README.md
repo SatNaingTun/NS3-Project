@@ -241,7 +241,7 @@ If you have successfully installed Git, you can get
 a copy of the development version with the following command:
 
 ```shell
-git clone https://gitlab.com/nsnam/ns-3-dev.git
+git clone https://github.com/SatNaingTun/NS3-Project.git
 ```
 
 However, we recommend to follow the GitLab guidelines for starters,
