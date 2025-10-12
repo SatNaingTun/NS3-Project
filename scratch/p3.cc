@@ -78,8 +78,8 @@ int main(int argc, char *argv[])
 
     Ipv4GlobalRoutingHelper::PopulateRoutingTables();
 
-    pointToPoint.EnablePcapAll("outputs/p2p");
-    csma.EnablePcapAll("outputs/csma");
+    pointToPoint.EnablePcapAll("outputs/p2p-p3");
+    csma.EnablePcapAll("outputs/csma-p3");
 
 
     AnimationInterface anim("outputs/p3.xml");
