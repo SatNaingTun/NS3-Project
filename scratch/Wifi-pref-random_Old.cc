@@ -9,7 +9,6 @@
 #include <fstream>
 #include <iostream>
 #include <iomanip>
-#include <ctime>   // <-- Added for timestamp
 
 using namespace ns3;
 
@@ -63,18 +62,6 @@ int main(int argc, char *argv[])
   cmd.AddValue("seed", "RNG seed", seed);
   cmd.AddValue("outPrefix", "Output files prefix (without extension)", outPrefix);
   cmd.Parse(argc, argv);
-
-  // ------- Add timestamp to output prefix -------
-  time_t now = time(0);
-  tm *ltm = localtime(&now);
-  std::ostringstream dateSuffix;
-  dateSuffix << std::setfill('0') << std::setw(2) << ltm->tm_mday << "-"
-             << std::put_time(ltm, "%b") << "-"
-             << (1900 + ltm->tm_year) << "_"
-             << std::setw(2) << std::setfill('0') << ltm->tm_hour << "-"
-             << std::setw(2) << std::setfill('0') << ltm->tm_min;
-  outPrefix += "-" + dateSuffix.str();
-  // ----------------------------------------------
 
   // RNG + random STA count
   RngSeedManager::SetSeed(seed);
@@ -320,8 +307,7 @@ int main(int argc, char *argv[])
             << " - " << outPrefix << "-rssi.csv (RSSI, noise)\n"
             << " - " << outPrefix << "-netanim.xml (for NetAnim)\n"
             << " - " << outPrefix << "-trace-*.pcap (Wireshark)\n"
-            << " - " << outPrefix << "-flow.xml (FlowMonitor XML)\n"
             << std::endl;
   return 0;
 }
-// --- END ---
+// --- IGNORE ---
