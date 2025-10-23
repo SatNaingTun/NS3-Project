@@ -10,27 +10,45 @@
 #include <iostream>
 #include <iomanip>
 #include <ctime>
-#include <sys/stat.h>   // for mkdir
+#include <sstream>
+#include <cmath>
+#include <vector>
 
 using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("WifiPerfRandom");
 
-// ---- RSSI tracer ----
-static void RssiTracer(std::ofstream *csv,
-                       Ptr<const Packet> pkt,
-                       uint16_t channelFreqMhz,
-                       WifiTxVector txVector,
-                       MpduInfo mpduInfo,
-                       SignalNoiseDbm signalNoise,
-                       uint16_t staId)
+// ---- RSSI/SNR/BER tracer with runTag ----
+static void
+RssiSnrBerTracer(uint32_t randSeed,
+                 std::string runTag,
+                 std::ofstream *csv,
+                 Ptr<const Packet> pkt,
+                 uint16_t channelFreqMhz,
+                 WifiTxVector txVector,
+                 MpduInfo mpduInfo,
+                 SignalNoiseDbm signalNoise,
+                 uint16_t staId)
 {
-  if (!csv || !csv->good()) return;
+  if (!csv || !csv->good())
+    return;
+
+  double rssi = signalNoise.signal;
+  double noise = signalNoise.noise;
+  double snr = rssi - noise; // dB
+  double snrLinear = std::pow(10.0, snr / 10.0);
+  double ber = 0.5 * std::erfc(std::sqrt(snrLinear));
+
+  // placeholder AvgSNR/AvgBER, to be overwritten later
   *csv << std::fixed << std::setprecision(6)
        << Simulator::Now().GetSeconds() << ","
        << channelFreqMhz << ","
-       << signalNoise.signal << ","
-       << signalNoise.noise << "\n";
+       << rssi << ","
+       << noise << ","
+       << snr << ","
+       << ber << ","
+       << 0.0 << "," << 0.0 << ","
+       << randSeed << "," << runTag << "\n";
 }
 
 int main(int argc, char *argv[])
@@ -72,12 +90,13 @@ int main(int argc, char *argv[])
              << std::setw(2) << ltm->tm_min;
   std::string runTag = dateSuffix.str();
 
-  
-  // Base prefixes for each type
-  std::string csvPrefix = "outputs/csv/wifi-random-" + runTag;
-  std::string pcapPrefix = "outputs/pcap/wifi-random-" + runTag;
-  std::string animPrefix = "outputs/netanim/wifi-random-" + runTag;
-  std::string flowPrefix = "outputs/netflows/wifi-random-" + runTag;
+  // ------- Directory prefixes (with seed tag) -------
+  std::ostringstream seedStr;
+  seedStr << seed;
+  std::string csvPrefix = "outputs/csv/wifi-random-" + runTag + "-seed" + seedStr.str();
+  std::string pcapPrefix = "outputs/pcap/wifi-random-" + runTag + "-seed" + seedStr.str();
+  std::string animPrefix = "outputs/netanim/wifi-random-" + runTag + "-seed" + seedStr.str();
+  std::string flowPrefix = "outputs/netflows/wifi-random-" + runTag + "-seed" + seedStr.str();
 
   // RNG setup
   RngSeedManager::SetSeed(seed);
@@ -85,17 +104,21 @@ int main(int argc, char *argv[])
   u->SetAttribute("Min", DoubleValue(nStaMin));
   u->SetAttribute("Max", DoubleValue(nStaMax + 1));
   uint32_t nSta = (uint32_t)std::floor(u->GetValue());
-  if (nSta < 1) nSta = 1;
+  if (nSta < 1)
+    nSta = 1;
 
   NS_LOG_UNCOND("\n=== Wi-Fi Scenario ===");
   NS_LOG_UNCOND("isIndoor=" << isIndoor << ", nSta=" << nSta
-                 << ", areaHalf=" << areaHalf
-                 << ", simTime=" << simTime
-                 << "s, txPower=" << txPower << " dBm");
+                             << ", areaHalf=" << areaHalf
+                             << ", simTime=" << simTime
+                             << "s, txPower=" << txPower
+                             << " dBm, seed=" << seed);
 
   // -------- Nodes --------
-  NodeContainer staNodes; staNodes.Create(nSta);
-  NodeContainer apNode; apNode.Create(1);
+  NodeContainer staNodes;
+  staNodes.Create(nSta);
+  NodeContainer apNode;
+  apNode.Create(1);
   NodeContainer intfApNode, intfStaNodes;
   if (enableInterference)
   {
@@ -104,11 +127,12 @@ int main(int argc, char *argv[])
   }
 
   // -------- Wi-Fi --------
-  WifiHelper wifi; wifi.SetStandard(WIFI_STANDARD_80211ac);
+  WifiHelper wifi;
+  wifi.SetStandard(WIFI_STANDARD_80211ac);
   YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
   if (isIndoor)
   {
-    channel.AddPropagationLoss("ns3::LogDistancePropagationLossModel","Exponent", DoubleValue(3.0));
+    channel.AddPropagationLoss("ns3::LogDistancePropagationLossModel", "Exponent", DoubleValue(3.0));
     channel.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
   }
   else
@@ -116,7 +140,8 @@ int main(int argc, char *argv[])
     channel.AddPropagationLoss("ns3::FriisPropagationLossModel");
     channel.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
   }
-  YansWifiPhyHelper phy; phy.SetChannel(channel.Create());
+  YansWifiPhyHelper phy;
+  phy.SetChannel(channel.Create());
   phy.Set("TxPowerStart", DoubleValue(txPower));
   phy.Set("TxPowerEnd", DoubleValue(txPower));
 
@@ -161,7 +186,8 @@ int main(int argc, char *argv[])
     mobIntfAp.Install(intfApNode);
 
     Ptr<MobilityModel> apmm = intfApNode.Get(0)->GetObject<MobilityModel>();
-    if (apmm) apmm->SetPosition(Vector(areaHalf, 0.0, 0.0));
+    if (apmm)
+      apmm->SetPosition(Vector(areaHalf, 0.0, 0.0));
   }
 
   // -------- Internet --------
@@ -177,7 +203,7 @@ int main(int argc, char *argv[])
   Ipv4AddressHelper ip;
   ip.SetBase("10.1.3.0", "255.255.255.0");
   Ipv4InterfaceContainer staIf = ip.Assign(staDevs);
-  Ipv4InterfaceContainer apIf  = ip.Assign(apDev);
+  Ipv4InterfaceContainer apIf = ip.Assign(apDev);
 
   if (enableInterference)
   {
@@ -223,9 +249,10 @@ int main(int argc, char *argv[])
   // -------- Traces --------
   phy.EnablePcapAll(pcapPrefix, true);
   std::ofstream rssiCsv((csvPrefix + "-rssi.csv").c_str());
-  rssiCsv << "time_s,channel_MHz,signal_dBm,noise_dBm\n";
-  Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
-                                MakeBoundCallback(&RssiTracer, &rssiCsv));
+  rssiCsv << "time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,BER,AvgSNR(dB),AvgBER,RandSeed,RunDateTime\n";
+  Config::ConnectWithoutContext(
+      "/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
+      MakeBoundCallback(&RssiSnrBerTracer, seed, runTag, &rssiCsv));
 
   AnimationInterface anim(animPrefix + "-netanim.xml");
   anim.SetMobilityPollInterval(Seconds(1));
@@ -234,9 +261,43 @@ int main(int argc, char *argv[])
   Simulator::Stop(Seconds(simTime + 1));
   Simulator::Run();
 
+  // --- Compute average SNR/BER ---
+  rssiCsv.close();
+  std::ifstream inSnrIn((csvPrefix + "-rssi.csv").c_str());
+  std::vector<std::string> lines;
+  std::string header, l;
+  std::getline(inSnrIn, header);
+  double snrSum = 0, berSum = 0; int count = 0;
+  while (std::getline(inSnrIn, l))
+  {
+    std::stringstream ss(l);
+    double t,f,sig,noise,snr,ber,tmp1,tmp2; uint32_t s; std::string tag; char c;
+    ss >> t >> c >> f >> c >> sig >> c >> noise >> c >> snr >> c >> ber;
+    if(!ss.fail()){ snrSum += snr; berSum += ber; count++; }
+    lines.push_back(l);
+  }
+  inSnrIn.close();
+  double avgSnr = (count>0)?snrSum/count:0.0;
+  double avgBer = (count>0)?berSum/count:0.0;
+
+  // rewrite RSSI CSV with AvgSNR/AvgBER per row
+  std::ofstream outSnr((csvPrefix + "-rssi.csv").c_str());
+  outSnr << header << "\n";
+  for(auto &l : lines)
+  {
+    std::stringstream ss(l);
+    double t,f,sig,noise,snr,ber,a1,a2; uint32_t s; std::string tag; char c;
+    ss >> t >> c >> f >> c >> sig >> c >> noise >> c >> snr >> c >> ber >> c >> a1 >> c >> a2 >> c >> s >> c >> tag;
+    if(!ss.fail())
+      outSnr << std::fixed << std::setprecision(6)
+             << t << "," << f << "," << sig << "," << noise << "," << snr << "," << ber << ","
+             << avgSnr << "," << avgBer << "," << s << "," << tag << "\n";
+  }
+  outSnr.close();
+
   // -------- Export FlowMonitor --------
   std::ofstream perfCsv((csvPrefix + "-perf.csv").c_str());
-  perfCsv << "FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%)\n";
+  perfCsv << "FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%),AvgSNR(dB),AvgBER,RandSeed,RunDateTime\n";
   monitor->CheckForLostPackets();
   Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(flowmon.GetClassifier());
   auto stats = monitor->GetFlowStats();
@@ -246,13 +307,14 @@ int main(int argc, char *argv[])
     Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(kv.first);
     const FlowMonitor::FlowStats &s = kv.second;
     double duration = (s.timeLastRxPacket - s.timeFirstTxPacket).GetSeconds();
-    double throughput = (duration > 0 && s.rxBytes > 0) ? (s.rxBytes * 8.0 / duration) / 1e6 : 0.0;
-    double avgDelayMs = (s.rxPackets > 0) ? (s.delaySum.GetSeconds() / s.rxPackets) * 1000.0 : 0.0;
-    double avgJitterMs = (s.rxPackets > 0) ? (s.jitterSum.GetSeconds() / s.rxPackets) * 1000.0 : 0.0;
-    double lossPct = (s.txPackets > 0) ? 100.0 * (s.txPackets - s.rxPackets) / s.txPackets : 0.0;
+    double throughput = (duration > 0 && s.rxBytes > 0)?(s.rxBytes * 8.0 / duration)/1e6:0.0;
+    double avgDelayMs = (s.rxPackets>0)?(s.delaySum.GetSeconds()/s.rxPackets)*1000.0:0.0;
+    double avgJitterMs = (s.rxPackets>0)?(s.jitterSum.GetSeconds()/s.rxPackets)*1000.0:0.0;
+    double lossPct = (s.txPackets>0)?100.0*(s.txPackets-s.rxPackets)/s.txPackets:0.0;
 
     perfCsv << kv.first << "," << t.sourceAddress << "," << t.destinationAddress << ","
-            << throughput << "," << avgDelayMs << "," << avgJitterMs << "," << lossPct << "\n";
+            << throughput << "," << avgDelayMs << "," << avgJitterMs << "," << lossPct << ","
+            << avgSnr << "," << avgBer << "," << seed << "," << runTag << "\n";
   }
 
   monitor->SerializeToXmlFile(flowPrefix + "-flow.xml", true, true);
