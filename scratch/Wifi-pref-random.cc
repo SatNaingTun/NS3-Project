@@ -6,360 +6,308 @@
 #include "ns3/applications-module.h"
 #include "ns3/flow-monitor-module.h"
 #include "ns3/netanim-module.h"
+#include "ns3/wifi-ppdu.h"
+
 #include <fstream>
-#include <iostream>
 #include <iomanip>
 #include <ctime>
 #include <sstream>
 #include <cmath>
 #include <vector>
-#include <map>
 
 using namespace ns3;
-
 NS_LOG_COMPONENT_DEFINE("WifiPerfRandom");
 
 // ==========================================================
-//  Global Variables
+// Global variables
 // ==========================================================
 static uint32_t activeNodes;
 struct DensityRecord { double start; double end; uint32_t nodes; };
 static std::vector<DensityRecord> densityLog;
 
 // ==========================================================
-//  RSSI/SNR/BER Tracer
+// RSSI / SNR / BER tracer (YansErrorRateModel)
 // ==========================================================
 static void
 RssiSnrBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
-                 Ptr<const Packet> pkt, uint16_t channelFreqMhz, WifiTxVector txVector,
-                 MpduInfo mpduInfo, SignalNoiseDbm signalNoise, uint16_t staId)
+                 Ptr<const Packet>, uint16_t chMHz, WifiTxVector txVec,
+                 MpduInfo, SignalNoiseDbm sn, uint16_t staId)
 {
   if (!csv || !csv->good()) return;
-  double rssi = signalNoise.signal;
-  double noise = signalNoise.noise;
-  double snr = rssi - noise;
-  double snrLinear = std::pow(10.0, snr / 10.0);
-  double ber = 0.5 * std::erfc(std::sqrt(snrLinear));
+  double rssi = sn.signal, noise = sn.noise;
+  double snrDb = rssi - noise, snrLin = std::pow(10.0, snrDb / 10.0);
+
+  Ptr<YansErrorRateModel> err = CreateObject<YansErrorRateModel>();
+  double succ = err->GetChunkSuccessRate(txVec.GetMode(), txVec, snrLin,
+                                         txVec.GetNss() * 8 * 1500,
+                                         txVec.GetChannelWidth(),
+                                         WIFI_PPDU_FIELD_DATA, staId);
+  double ber = 1.0 - succ;
+  if (ber < 1e-9) ber = 1e-9;
+
   *csv << std::fixed << std::setprecision(6)
-       << Simulator::Now().GetSeconds() << "," << channelFreqMhz << ","
-       << rssi << "," << noise << "," << snr << "," << ber << ","
+       << Simulator::Now().GetSeconds() << "," << chMHz << ","
+       << rssi << "," << noise << "," << snrDb << "," << ber << ","
        << randSeed << "," << runTag << "\n";
 }
 
 // ==========================================================
-//  Dynamic Node Density Controller
+// Modulation-aware BER tracer (modern NS-3 API)
 // ==========================================================
-void ChangeActiveStations(ApplicationContainer &apps, uint32_t &currentN,
+static void
+ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
+                    Ptr<const Packet>, uint16_t channelFreqMhz, WifiTxVector txVector,
+                    MpduInfo, SignalNoiseDbm signalNoise, uint16_t staId)
+{
+  if (!csv || !csv->good()) return;
+
+  double rssi  = signalNoise.signal;
+  double noise = signalNoise.noise;
+  double snrDb = rssi - noise;
+  double snrLinear = std::pow(10.0, snrDb / 10.0);
+
+  Ptr<YansErrorRateModel> errModel = CreateObject<YansErrorRateModel>();
+  WifiMode mode = txVector.GetMode();
+
+  // --- Determine modulation class (for labeling) ---
+  std::string modulation;
+  switch (mode.GetModulationClass()) {
+    case WIFI_MOD_CLASS_DSSS:  modulation = "DSSS"; break;
+    case WIFI_MOD_CLASS_OFDM:  modulation = "OFDM"; break;
+    case WIFI_MOD_CLASS_HT:    modulation = "HT";   break;
+    case WIFI_MOD_CLASS_VHT:   modulation = "VHT";  break;
+    case WIFI_MOD_CLASS_HE:    modulation = "HE";   break;
+    default:                   modulation = "UNKNOWN"; break;
+  }
+
+  // --- Use public GetChunkSuccessRate() to approximate BER ---
+  uint64_t nbits = txVector.GetNss() * 8 * 1500;
+  uint8_t channelWidth = txVector.GetChannelWidth();
+  WifiPpduField field = WIFI_PPDU_FIELD_DATA;
+
+  double success = errModel->GetChunkSuccessRate(
+      mode, txVector, snrLinear, nbits, channelWidth, field, staId);
+
+  // Approximate bit error rate as probability of failure divided by bits
+  double ber = (1.0 - success) / nbits;
+  if (ber < 1e-9) ber = 1e-9;
+
+  // --- Add modulation constellation and PHY rate for reference ---
+  uint16_t constellation = mode.GetConstellationSize();
+  double phyRateMbps = mode.GetDataRate(txVector) / 1e6;
+
+  *csv << std::fixed << std::setprecision(6)
+       << Simulator::Now().GetSeconds() << ","
+       << channelFreqMhz << ","
+       << modulation << ","
+       << constellation << ","
+       << phyRateMbps << ","
+       << rssi << "," << noise << "," << snrDb << "," << ber << ","
+       << randSeed << "," << runTag << "\n";
+}
+
+
+// ==========================================================
+// Dynamic node-density controller
+// ==========================================================
+void ChangeActiveStations(ApplicationContainer &apps, uint32_t &curN,
                           uint32_t nMin, uint32_t nMax, uint32_t seed, double interval)
 {
   Ptr<UniformRandomVariable> rnd = CreateObject<UniformRandomVariable>();
   rnd->SetStream(seed + (uint32_t)Simulator::Now().GetSeconds() * 17);
-
   int delta = (int)std::round(rnd->GetValue(-3.0, 3.0));
-  int newN = std::max((int)nMin, std::min((int)nMax, (int)currentN + delta));
-
+  int newN = std::max((int)nMin, std::min((int)nMax, (int)curN + delta));
   double now = Simulator::Now().GetSeconds();
 
-  if (newN != (int)currentN)
-  {
-    NS_LOG_UNCOND("[" << now << "s] Node density changed: " << currentN << " → " << newN);
+  if (newN != (int)curN) {
+    NS_LOG_UNCOND("["<<now<<"s] Node density changed: "<<curN<<" → "<<newN);
     if (!densityLog.empty()) densityLog.back().end = now;
     densityLog.push_back({now, now + interval, (uint32_t)newN});
-    currentN = newN;
-
-    for (uint32_t i = 0; i < apps.GetN(); ++i)
-    {
-      if (i < currentN)
-        apps.Get(i)->SetAttribute("StartTime", TimeValue(Seconds(now)));
-      else
-        apps.Get(i)->SetAttribute("StopTime", TimeValue(Seconds(now)));
-    }
+    curN = newN;
+    for (uint32_t i=0;i<apps.GetN();++i)
+      apps.Get(i)->SetAttribute(i<curN?"StartTime":"StopTime", TimeValue(Seconds(now)));
   }
-
-  Simulator::Schedule(Seconds(interval), &ChangeActiveStations, std::ref(apps),
-                      std::ref(currentN), nMin, nMax, seed + 1, interval);
+  Simulator::Schedule(Seconds(interval), &ChangeActiveStations,
+                      std::ref(apps), std::ref(curN),
+                      nMin, nMax, seed + 1, interval);
 }
 
 // ==========================================================
-//  Setup Wi-Fi BSS
+// Wi-Fi BSS setup
 // ==========================================================
-struct WifiBss
-{
-  NodeContainer ap;
-  NodeContainer stas;
-  NetDeviceContainer apDev;
-  NetDeviceContainer staDevs;
-  Ipv4InterfaceContainer apIf;
-  Ipv4InterfaceContainer staIf;
+struct WifiBss {
+  NodeContainer ap, stas;
+  NetDeviceContainer apDev, staDevs;
+  Ipv4InterfaceContainer apIf, staIf;
 };
-
-WifiBss SetupWifiBss(std::string subnet, double txPower, double areaHalf,
-                     uint32_t nSta, bool isIndoor)
+WifiBss SetupWifiBss(std::string subnet,double txPower,double areaHalf,
+                     uint32_t nSta,bool indoor)
 {
-  WifiBss bss;
-  bss.ap.Create(1);
-  bss.stas.Create(nSta);
-
-  WifiHelper wifi;
-  wifi.SetStandard(WIFI_STANDARD_80211ac);
-  YansWifiChannelHelper channel = YansWifiChannelHelper::Default();
-  if (isIndoor)
-  {
-    channel.AddPropagationLoss("ns3::LogDistancePropagationLossModel", "Exponent", DoubleValue(3.0));
-    channel.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
+  WifiBss b;
+  b.ap.Create(1); b.stas.Create(nSta);
+  WifiHelper wifi; wifi.SetStandard(WIFI_STANDARD_80211ac);
+  YansWifiChannelHelper ch = YansWifiChannelHelper::Default();
+  if (indoor) {
+    ch.AddPropagationLoss("ns3::LogDistancePropagationLossModel","Exponent",DoubleValue(3.0));
+    ch.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
+  } else {
+    ch.AddPropagationLoss("ns3::FriisPropagationLossModel");
+    ch.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
   }
-  else
-  {
-    channel.AddPropagationLoss("ns3::FriisPropagationLossModel");
-    channel.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
-  }
-
-  YansWifiPhyHelper phy;
-  phy.SetChannel(channel.Create());
-  phy.Set("TxPowerStart", DoubleValue(txPower));
-  phy.Set("TxPowerEnd", DoubleValue(txPower));
-
-  WifiMacHelper mac;
-  Ssid ssid = Ssid(subnet);
-  mac.SetType("ns3::StaWifiMac", "Ssid", SsidValue(ssid), "ActiveProbing", BooleanValue(false));
-  bss.staDevs = wifi.Install(phy, mac, bss.stas);
-  mac.SetType("ns3::ApWifiMac", "Ssid", SsidValue(ssid));
-  bss.apDev = wifi.Install(phy, mac, bss.ap);
-
-  MobilityHelper mobSta;
-  mobSta.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
-                          "Bounds", RectangleValue(Rectangle(-areaHalf, areaHalf, -areaHalf, areaHalf)));
-  mobSta.Install(bss.stas);
-  MobilityHelper mobAp;
-  mobAp.SetMobilityModel("ns3::ConstantPositionMobilityModel");
-  mobAp.Install(bss.ap);
-
-  InternetStackHelper stack;
-  stack.Install(bss.ap);
-  stack.Install(bss.stas);
-
-  Ipv4AddressHelper ip;
-  ip.SetBase(subnet.c_str(), "255.255.255.0");
-  bss.staIf = ip.Assign(bss.staDevs);
-  bss.apIf = ip.Assign(bss.apDev);
-
-  return bss;
+  YansWifiPhyHelper phy; phy.SetChannel(ch.Create());
+  phy.Set("TxPowerStart",DoubleValue(txPower));
+  phy.Set("TxPowerEnd",DoubleValue(txPower));
+  WifiMacHelper mac; Ssid ssid=Ssid(subnet);
+  mac.SetType("ns3::StaWifiMac","Ssid",SsidValue(ssid),"ActiveProbing",BooleanValue(false));
+  b.staDevs=wifi.Install(phy,mac,b.stas);
+  mac.SetType("ns3::ApWifiMac","Ssid",SsidValue(ssid));
+  b.apDev=wifi.Install(phy,mac,b.ap);
+  MobilityHelper ms; ms.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
+        "Bounds",RectangleValue(Rectangle(-areaHalf,areaHalf,-areaHalf,areaHalf)));
+  ms.Install(b.stas);
+  MobilityHelper ma; ma.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+  ma.Install(b.ap);
+  InternetStackHelper stack; stack.Install(b.ap); stack.Install(b.stas);
+  Ipv4AddressHelper ip; ip.SetBase(subnet.c_str(),"255.255.255.0");
+  b.staIf=ip.Assign(b.staDevs); b.apIf=ip.Assign(b.apDev);
+  return b;
 }
 
 // ==========================================================
-//  Install UDP Traffic
+// UDP traffic
 // ==========================================================
-ApplicationContainer InstallTraffic(WifiBss &bss, uint16_t port, uint32_t packetSize,
-                                    double intervalMs, double simTime)
+ApplicationContainer InstallTraffic(WifiBss &b,uint16_t port,
+                                    uint32_t pktSz,double intv,double simTime)
 {
-  UdpClientHelper client(bss.apIf.GetAddress(0), port);
-  client.SetAttribute("MaxPackets", UintegerValue(0));
-  client.SetAttribute("Interval", TimeValue(MilliSeconds(intervalMs)));
-  client.SetAttribute("PacketSize", UintegerValue(packetSize));
-
-  ApplicationContainer clients;
-  for (uint32_t i = 0; i < bss.stas.GetN(); ++i)
-    clients.Add(client.Install(bss.stas.Get(i)));
-
-  UdpServerHelper server(port);
-  ApplicationContainer serverApp = server.Install(bss.ap.Get(0));
-
-  serverApp.Start(Seconds(1.0));
-  clients.Start(Seconds(2.0));
-  clients.Stop(Seconds(simTime));
-  serverApp.Stop(Seconds(simTime));
-
-  return clients;
+  UdpClientHelper client(b.apIf.GetAddress(0),port);
+  client.SetAttribute("MaxPackets",UintegerValue(0));
+  client.SetAttribute("Interval",TimeValue(MilliSeconds(intv)));
+  client.SetAttribute("PacketSize",UintegerValue(pktSz));
+  ApplicationContainer c;
+  for(uint32_t i=0;i<b.stas.GetN();++i) c.Add(client.Install(b.stas.Get(i)));
+  UdpServerHelper srv(port); auto s=srv.Install(b.ap.Get(0));
+  s.Start(Seconds(1.0)); c.Start(Seconds(2.0));
+  c.Stop(Seconds(simTime)); s.Stop(Seconds(simTime));
+  return c;
 }
 
 // ==========================================================
-//  Main
+// Main
 // ==========================================================
-int main(int argc, char *argv[])
+int main(int argc,char *argv[])
 {
-  bool isIndoor = true;
-  uint32_t nStaMin = 5, nStaMax = 30;
-  double areaHalf = 50.0, simTime = 30.0, txPower = 16.0;
-  bool enableInterference = true;
-  uint32_t seed = 12345;
-  uint16_t appPort = 9999;
-  uint32_t packetSize = 1024;
-  double clientIntervalMs = 10.0;
-  double densityChangeInterval = 5.0;
-
+  bool indoor=true; uint32_t nMin=5,nMax=30;
+  double area=50,sim=30,txP=16; bool inter=true;
+  uint32_t seed=12345; uint16_t port=9999;
+  uint32_t pkt=1024; double intv=10,change=5;
   CommandLine cmd;
-  cmd.AddValue("isIndoor", "", isIndoor);
-  cmd.AddValue("nStaMin", "", nStaMin);
-  cmd.AddValue("nStaMax", "", nStaMax);
-  cmd.AddValue("areaHalf", "", areaHalf);
-  cmd.AddValue("simTime", "", simTime);
-  cmd.AddValue("txPower", "", txPower);
-  cmd.AddValue("enableInterference", "", enableInterference);
-  cmd.AddValue("packetSize", "", packetSize);
-  cmd.AddValue("clientIntervalMs", "", clientIntervalMs);
-  cmd.AddValue("seed", "", seed);
-  cmd.AddValue("densityChangeInterval", "", densityChangeInterval);
-  cmd.Parse(argc, argv);
+  cmd.AddValue("isIndoor","",indoor);
+  cmd.AddValue("nStaMin","",nMin);
+  cmd.AddValue("nStaMax","",nMax);
+  cmd.AddValue("areaHalf","",area);
+  cmd.AddValue("simTime","",sim);
+  cmd.AddValue("txPower","",txP);
+  cmd.AddValue("enableInterference","",inter);
+  cmd.AddValue("packetSize","",pkt);
+  cmd.AddValue("clientIntervalMs","",intv);
+  cmd.AddValue("seed","",seed);
+  cmd.AddValue("densityChangeInterval","",change);
+  cmd.Parse(argc,argv);
 
-  // Timestamp for filenames
-  time_t now = time(0);
-  tm *ltm = localtime(&now);
-  std::ostringstream dateSuffix;
-  dateSuffix << std::setfill('0') << std::setw(2) << ltm->tm_mday << "-"
-             << std::put_time(ltm, "%b") << "-"
-             << (1900 + ltm->tm_year) << "_"
-             << std::setw(2) << ltm->tm_hour << "-"
-             << std::setw(2) << ltm->tm_min;
-  std::string runTag = dateSuffix.str();
+  time_t now=time(0); tm *lt=localtime(&now);
+  std::ostringstream tag; tag<<std::setfill('0')<<std::setw(2)<<lt->tm_mday<<"-"
+     <<std::put_time(lt,"%b")<<"-"<<(1900+lt->tm_year)<<"_"
+     <<std::setw(2)<<lt->tm_hour<<"-"<<std::setw(2)<<lt->tm_min;
+  std::string run=tag.str(), prefix="outputs/csv/wifi-random-"+run+"-seed"+std::to_string(seed);
 
-  std::ostringstream seedStr;
-  seedStr << seed;
-  std::string csvPrefix = "outputs/csv/wifi-random-" + runTag + "-seed" + seedStr.str();
-
-  // RNG and initial nodes
   RngSeedManager::SetSeed(seed);
-  Ptr<UniformRandomVariable> u = CreateObject<UniformRandomVariable>();
-  u->SetAttribute("Min", DoubleValue(nStaMin));
-  u->SetAttribute("Max", DoubleValue(nStaMax + 1));
-  activeNodes = (uint32_t)std::floor(u->GetValue());
-  if (activeNodes < 1) activeNodes = 1;
+  Ptr<UniformRandomVariable> u=CreateObject<UniformRandomVariable>();
+  u->SetAttribute("Min",DoubleValue(nMin)); u->SetAttribute("Max",DoubleValue(nMax+1));
+  activeNodes=(uint32_t)std::floor(u->GetValue());
+  if(activeNodes<1)activeNodes=1;
+  WifiBss main=SetupWifiBss("10.1.3.0",txP,area,nMax,indoor);
+  WifiBss intf;
+  if(inter) intf=SetupWifiBss("10.1.4.0",txP,area,std::max(1u,nMax/3),indoor);
 
-  NS_LOG_UNCOND("\n=== Wi-Fi Scenario ===");
-  NS_LOG_UNCOND("isIndoor=" << isIndoor << ", nStaInitial=" << activeNodes
-                             << ", txPower=" << txPower << " dBm, seed=" << seed);
+  ApplicationContainer apps=InstallTraffic(main,port,pkt,intv,sim);
+  if(inter) InstallTraffic(intf,8888,pkt,intv,sim);
+  densityLog.push_back({0.0,change,activeNodes});
+  Simulator::Schedule(Seconds(change),&ChangeActiveStations,std::ref(apps),
+                      std::ref(activeNodes),nMin,nMax,seed,change);
 
-  WifiBss mainBss = SetupWifiBss("10.1.3.0", txPower, areaHalf, nStaMax, isIndoor);
-  WifiBss intfBss;
-  if (enableInterference)
-    intfBss = SetupWifiBss("10.1.4.0", txPower, areaHalf, std::max(1u, nStaMax/3), isIndoor);
+  FlowMonitorHelper flowmon; Ptr<FlowMonitor> mon=flowmon.InstallAll();
 
-  ApplicationContainer clientApps = InstallTraffic(mainBss, appPort, packetSize, clientIntervalMs, simTime);
-  if (enableInterference)
-    InstallTraffic(intfBss, 8888, packetSize, clientIntervalMs, simTime);
+  std::ofstream rssi((prefix+"-rssi.csv").c_str());
+  rssi<<"time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,BER,RandSeed,RunDateTime\n";
+  Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
+      MakeBoundCallback(&RssiSnrBerTracer,seed,run,&rssi));
+  std::ofstream mod((prefix+"-modulation.csv").c_str());
+  mod<<"time_s,channel_MHz,Modulation,ConstellationSize,PhyRate_Mbps,signal_dBm,noise_dBm,SNR_dB,BER,RandSeed,RunDateTime\n";
+  Config::ConnectWithoutContext("/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
+      MakeBoundCallback(&ModulationBerTracer,seed,run,&mod));
 
-  densityLog.push_back({0.0, densityChangeInterval, activeNodes});
-  Simulator::Schedule(Seconds(densityChangeInterval),
-                      &ChangeActiveStations, std::ref(clientApps),
-                      std::ref(activeNodes), nStaMin, nStaMax, seed, densityChangeInterval);
+  Simulator::Stop(Seconds(sim+1)); Simulator::Run();
 
-  FlowMonitorHelper flowmon;
-  Ptr<FlowMonitor> monitor = flowmon.InstallAll();
-
-  std::ofstream rssiCsv((csvPrefix + "-rssi.csv").c_str());
-  rssiCsv << "time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,BER,RandSeed,RunDateTime\n";
-  Config::ConnectWithoutContext(
-      "/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
-      MakeBoundCallback(&RssiSnrBerTracer, seed, runTag, &rssiCsv));
-
-  Simulator::Stop(Seconds(simTime + 1));
-  Simulator::Run();
-
-  // =============================================================
-  // PERF.CSV: FlowMonitor Output
-  // =============================================================
-  monitor->CheckForLostPackets();
-  auto stats = monitor->GetFlowStats();
-  Ptr<Ipv4FlowClassifier> classifier = DynamicCast<Ipv4FlowClassifier>(flowmon.GetClassifier());
-
-  std::ofstream perfCsv((csvPrefix + "-perf.csv").c_str());
-  perfCsv << "FlowID,NetworkType,Source,Destination,Throughput(Mbps),Latency_avg(ms),"
-             "Jitter_avg(ms),PacketLoss(%),RandSeed,RunDateTime\n";
-
-  for (auto const &kv : stats)
-  {
-    Ipv4FlowClassifier::FiveTuple t = classifier->FindFlow(kv.first);
-    const FlowMonitor::FlowStats &s = kv.second;
-    double dur = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
-    double thr = (dur>0 && s.rxBytes>0)?(s.rxBytes*8.0/dur)/1e6:0.0;
-    double delayMs = (s.rxPackets>0)?(s.delaySum.GetSeconds()/s.rxPackets)*1000.0:0.0;
-    double jitterMs = (s.rxPackets>0)?(s.jitterSum.GetSeconds()/s.rxPackets)*1000.0:0.0;
-    double loss = (s.txPackets>0)?100.0*(s.txPackets-s.rxPackets)/s.txPackets:0.0;
-    std::string netType = (t.sourceAddress.Get() >= 0x0A010300 && t.sourceAddress.Get() < 0x0A010400)
-                            ? "MainBSS" : "InterfBSS";
-
-    perfCsv << kv.first << "," << netType << "," << t.sourceAddress << "," << t.destinationAddress
-            << "," << thr << "," << delayMs << "," << jitterMs << "," << loss
-            << "," << seed << "," << runTag << "\n";
-  }
-  perfCsv.close();
-
-  // =============================================================
-  // NODEDENSITY.CSV: Aggregated Throughput, Jitter, RSSI, SNR, BER
-  // =============================================================
-  std::vector<std::tuple<double,double,double,double,double>> rssiData;
-  {
-    std::ifstream rf((csvPrefix + "-rssi.csv").c_str());
-    std::string line;
-    std::getline(rf, line);
-    double t, ch, sig, noise, snr, ber;
-    char comma;
-    while (rf >> t >> comma >> ch >> comma >> sig >> comma >> noise >> comma >> snr >> comma >> ber)
-      rssiData.push_back({t, sig, noise, snr, ber});
+  // ------------------- PERF.CSV -------------------
+  mon->CheckForLostPackets();
+  auto stats=mon->GetFlowStats();
+  Ptr<Ipv4FlowClassifier> cls=DynamicCast<Ipv4FlowClassifier>(flowmon.GetClassifier());
+  std::ofstream perf((prefix+"-perf.csv").c_str());
+  perf<<"FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%)\n";
+  for(auto &kv:stats){
+    Ipv4FlowClassifier::FiveTuple t=cls->FindFlow(kv.first);
+    const FlowMonitor::FlowStats &s=kv.second;
+    double dur=(s.timeLastRxPacket-s.timeFirstRxPacket).GetSeconds();
+    double thr=(dur>0&&s.rxBytes>0)?(s.rxBytes*8.0/dur)/1e6:0;
+    double delay=(s.rxPackets>0)?(s.delaySum.GetSeconds()/s.rxPackets)*1000:0;
+    double jit=(s.rxPackets>0)?(s.jitterSum.GetSeconds()/s.rxPackets)*1000:0;
+    double loss=(s.txPackets>0)?100.0*(s.txPackets-s.rxPackets)/s.txPackets:0;
+    perf<<kv.first<<","<<t.sourceAddress<<","<<t.destinationAddress<<","
+        <<thr<<","<<delay<<","<<jit<<","<<loss<<"\n";
   }
 
-  std::ofstream ndCsv((csvPrefix + "-nodedensity.csv").c_str());
-  ndCsv << "StartDateTime,EndDateTime,Duration_s,NodeDensity,"
-           "TotalThroughput(Mbps),AvgJitter(ms),AvgRSSI(dBm),AvgSNR(dB),AvgBER\n";
-
-  time_t simStart = time(nullptr);
-  for (auto &rec : densityLog)
-  {
-    if (rec.end > simTime) rec.end = simTime;
-    double start = rec.start;
-    double end = rec.end;
-    double dur = end - start;
-
-    double totalThr = 0.0, sumJit = 0.0; int flowCount = 0;
-    for (auto &kv : stats)
-    {
-      const FlowMonitor::FlowStats &s = kv.second;
-      if (s.timeLastRxPacket.GetSeconds() >= start && s.timeFirstTxPacket.GetSeconds() <= end)
-      {
-        double durFlow = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
-        double thr = (durFlow>0 && s.rxBytes>0)?(s.rxBytes*8.0/durFlow)/1e6:0.0;
-        double jit = (s.rxPackets>0)?(s.jitterSum.GetSeconds()/s.rxPackets)*1000.0:0.0;
-        totalThr += thr;
-        sumJit += jit;
-        flowCount++;
-      }
-    }
-    double avgJit = (flowCount>0)?sumJit/flowCount:0.0;
-
-    double sumRssi=0,sumSnr=0,sumBer=0; int rCount=0;
-    for (auto &r : rssiData)
-    {
-      double t = std::get<0>(r);
-      if (t >= start && t < end)
-      {
-        sumRssi += std::get<1>(r);
-        sumSnr  += std::get<3>(r);
-        sumBer  += std::get<4>(r);
-        rCount++;
-      }
-    }
-
-    double avgRssi = (rCount>0)?sumRssi/rCount:0.0;
-    double avgSnr  = (rCount>0)?sumSnr/rCount:0.0;
-    double avgBer  = (rCount>0)?sumBer/rCount:0.0;
-
-    char startBuf[64], endBuf[64];
-    time_t startTs = simStart + (time_t)start;
-    time_t endTs   = simStart + (time_t)end;
-    strftime(startBuf, sizeof(startBuf), "%Y-%m-%d %H:%M:%S", localtime(&startTs));
-    strftime(endBuf,   sizeof(endBuf),   "%Y-%m-%d %H:%M:%S", localtime(&endTs));
-
-    ndCsv << startBuf << "," << endBuf << ","
-          << dur << "," << rec.nodes << ","
-          << totalThr << "," << avgJit << ","
-          << avgRssi << "," << avgSnr << "," << avgBer << "\n";
+  // ------------------- NODEDENSITY.CSV -------------------
+  std::vector<std::tuple<double,double,double,double,double>> rData;
+  { std::ifstream rf((prefix+"-rssi.csv").c_str()); std::string line; std::getline(rf,line);
+    double t,ch,sig,noi,snr,ber; char c;
+    while(rf>>t>>c>>ch>>c>>sig>>c>>noi>>c>>snr>>c>>ber)
+      rData.push_back({t,sig,noi,snr,ber});
+  }
+  std::ofstream nd((prefix+"-nodedensity.csv").c_str());
+  nd<<"StartDateTime,EndDateTime,Duration_s,NodeDensity,"
+       "TotalTxPackets,TotalRxPackets,TotalThroughput(Mbps),"
+       "TotalPacketLoss(%),AvgJitter(ms),AvgRSSI(dBm),AvgSNR(dB),AvgBER\n";
+  time_t base=time(nullptr);
+  for(auto &r:densityLog){
+    if(r.end>sim)r.end=sim;
+    double st=r.start,en=r.end,dur=en-st;
+    double thr=0,jitSum=0; uint64_t tx=0,rx=0; int n=0;
+    for(auto &kv:stats){
+      const FlowMonitor::FlowStats &s=kv.second;
+      if(s.timeLastRxPacket.GetSeconds()>=st&&s.timeFirstTxPacket.GetSeconds()<=en){
+        double d=(s.timeLastRxPacket-s.timeFirstRxPacket).GetSeconds();
+        double t=(d>0&&s.rxBytes>0)?(s.rxBytes*8.0/d)/1e6:0;
+        double j=(s.rxPackets>0)?(s.jitterSum.GetSeconds()/s.rxPackets)*1000:0;
+        thr+=t;jitSum+=j;tx+=s.txPackets;rx+=s.rxPackets;n++;
+      }}
+    double avgJ=(n>0)?jitSum/n:0;
+    double loss=(tx>0)?100.0*(double)(tx-rx)/tx:0;
+    double sR=0,sS=0,sB=0;int rc=0;
+    for(auto &x:rData){double t=std::get<0>(x);
+      if(t>=st&&t<en){sR+=std::get<1>(x);sS+=std::get<3>(x);sB+=std::get<4>(x);rc++;}}
+    double aR=(rc>0)?sR/rc:0,aS=(rc>0)?sS/rc:0,aB=(rc>0)?sB/rc:0;
+    char sb[64],eb[64]; time_t sT=base+(time_t)st,eT=base+(time_t)en;
+    strftime(sb,sizeof(sb),"%Y-%m-%d %H:%M:%S",localtime(&sT));
+    strftime(eb,sizeof(eb),"%Y-%m-%d %H:%M:%S",localtime(&eT));
+    nd<<sb<<","<<eb<<","<<dur<<","<<r.nodes<<","<<tx<<","<<rx<<","<<thr<<","
+      <<loss<<","<<avgJ<<","<<aR<<","<<aS<<","<<aB<<"\n";
   }
 
-  ndCsv.close();
-  rssiCsv.close();
+  nd.close(); perf.close(); rssi.close(); mod.close();
   Simulator::Destroy();
-
-  std::cout << "\n✅ Outputs generated:\n"
-            << "  → " << csvPrefix << "-perf.csv (FlowMonitor)\n"
-            << "  → " << csvPrefix << "-rssi.csv (RSSI/SNR/BER)\n"
-            << "  → " << csvPrefix << "-nodedensity.csv (Enriched summary)\n";
+  std::cout<<"\n✅ Outputs generated:\n"
+           <<"  → "<<prefix<<"-perf.csv\n"
+           <<"  → "<<prefix<<"-rssi.csv\n"
+           <<"  → "<<prefix<<"-modulation.csv\n"
+           <<"  → "<<prefix<<"-nodedensity.csv\n";
 }
