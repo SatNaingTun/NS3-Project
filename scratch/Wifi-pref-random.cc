@@ -29,41 +29,18 @@ static std::vector<DensityRecord> densityLog;
 //  RSSI / SNR / BER Tracer (real BER + BER in dB, no fake floor)
 // ==========================================================
 static void
-RssiSnrBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
+RssiTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
                  Ptr<const Packet>, uint16_t channelFreqMhz, WifiTxVector txVector,
                  MpduInfo, SignalNoiseDbm signalNoise, uint16_t staId)
 {
   if (!csv || !csv->good()) return;
 
-  // --- PHY parameters ---
-  double rssi  = signalNoise.signal;
-  double noise = signalNoise.noise;
-  double snrDb = rssi - noise;
-  double snrLinear = std::pow(10.0, snrDb / 10.0);
-
-  // --- NS-3 error model ---
-  Ptr<YansErrorRateModel> errModel = CreateObject<YansErrorRateModel>();
-  WifiMode mode = txVector.GetMode();
-
-  uint64_t nbits = txVector.GetNss() * 8 * 1500;
-  uint8_t channelWidth = txVector.GetChannelWidth();
-  WifiPpduField field = WIFI_PPDU_FIELD_DATA;
-
-  // --- Success rate → BER ---
-  double success = errModel->GetChunkSuccessRate(
-      mode, txVector, snrLinear, nbits, channelWidth, field, staId);
-
-  double berLinear = (1.0 - success) / nbits;
-  if (berLinear <= 0.0)
-      berLinear = std::numeric_limits<double>::min();  // prevent log(0)
-  double berDb = 10.0 * std::log10(berLinear);
-
-  // --- Write both linear and dB forms ---
-  *csv << std::scientific << std::setprecision(8)
-       << Simulator::Now().GetSeconds() << ","
+  *csv << std::fixed << std::setprecision(6)
+       << Simulator::Now().GetSeconds() << ","  // <- must be inside callback
        << channelFreqMhz << ","
-       << rssi << "," << noise << "," << snrDb << ","
-       << berLinear << "," << berDb << ","
+       << signalNoise.signal << ","
+       << signalNoise.noise << ","
+       << (signalNoise.signal - signalNoise.noise) << ","
        << randSeed << "," << runTag << "\n";
 }
 
@@ -270,10 +247,10 @@ int main(int argc, char* argv[])
   FlowMonitorHelper flowmon; Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
   std::ofstream rssi((prefix+"-rssi.csv").c_str());
-  rssi << "time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,BER,RandSeed,RunDateTime\n";
+  rssi << "time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,RandSeed,RunDateTime\n";
   Config::ConnectWithoutContext(
       "/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
-      MakeBoundCallback(&RssiSnrBerTracer, seed, run, &rssi));
+      MakeBoundCallback(&RssiTracer, seed, run, &rssi));
 
   std::ofstream mod((prefix+"-modulation.csv").c_str());
   mod << "time_s,channel_MHz,Modulation,ConstellationSize,PhyRate_Mbps,signal_dBm,noise_dBm,SNR_dB,BER,RandSeed,RunDateTime\n";
