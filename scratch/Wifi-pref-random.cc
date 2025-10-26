@@ -268,19 +268,23 @@ int main(int argc, char* argv[])
 
   // ---- perf.csv ----
   std::ofstream perf((prefix+"-perf.csv").c_str());
-  perf << "FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%)\n";
-  for (auto &kv : stats) {
-    Ipv4FlowClassifier::FiveTuple t = cls->FindFlow(kv.first);
-    const FlowMonitor::FlowStats &s = kv.second;
-    double dur = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
-    double thr = (dur>0 && s.rxBytes>0)? (s.rxBytes*8.0/dur)/1e6 : 0.0;
-    double delay = (s.rxPackets>0)? (s.delaySum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
-    double jit = (s.rxPackets>0)? (s.jitterSum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
-    double loss = (s.txPackets>0)? 100.0*(s.txPackets - s.rxPackets)/s.txPackets : 0.0;
-    perf << kv.first << "," << t.sourceAddress << "," << t.destinationAddress << ","
-         << thr << "," << delay << "," << jit << "," << loss << "\n";
-  }
-  perf.close();
+perf << "FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%),Duration_s,RandSeed,RunDateTime\n";
+for (auto &kv : stats) {
+  Ipv4FlowClassifier::FiveTuple t = cls->FindFlow(kv.first);
+  const FlowMonitor::FlowStats &s = kv.second;
+
+  double dur = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
+  double thr = (dur>0 && s.rxBytes>0)? (s.rxBytes*8.0/dur)/1e6 : 0.0;
+  double delay = (s.rxPackets>0)? (s.delaySum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
+  double jit = (s.rxPackets>0)? (s.jitterSum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
+  double loss = (s.txPackets>0)? 100.0*(s.txPackets - s.rxPackets)/s.txPackets : 0.0;
+
+  perf << kv.first << "," << t.sourceAddress << "," << t.destinationAddress << ","
+       << thr << "," << delay << "," << jit << "," << loss << ","
+       << dur << "," << seed << "," << run << "\n";
+}
+perf.close();
+
 
   // ---- load modulation.csv for realistic BER aggregation ----
   std::vector<std::tuple<double,double,double,double,double>> modData; // t, rssi, noise, snr, ber
