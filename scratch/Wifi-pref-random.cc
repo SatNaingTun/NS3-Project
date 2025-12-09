@@ -14,6 +14,7 @@
 #include <sstream>
 #include <cmath>
 #include <vector>
+#include <limits>
 
 using namespace ns3;
 NS_LOG_COMPONENT_DEFINE("WifiPerfRandom");
@@ -26,17 +27,17 @@ struct DensityRecord { double start; double end; uint32_t nodes; };
 static std::vector<DensityRecord> densityLog;
 
 // ==========================================================
-//  RSSI / SNR / BER Tracer (real BER + BER in dB, no fake floor)
+//  RSSI / SNR Tracer
 // ==========================================================
 static void
 RssiTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
-                 Ptr<const Packet>, uint16_t channelFreqMhz, WifiTxVector txVector,
-                 MpduInfo, SignalNoiseDbm signalNoise, uint16_t staId)
+           Ptr<const Packet>, uint16_t channelFreqMhz, WifiTxVector /*txVector*/,
+           MpduInfo, SignalNoiseDbm signalNoise, uint16_t /*staId*/)
 {
   if (!csv || !csv->good()) return;
 
   *csv << std::fixed << std::setprecision(6)
-       << Simulator::Now().GetSeconds() << ","  // <- must be inside callback
+       << Simulator::Now().GetSeconds() << ","
        << channelFreqMhz << ","
        << signalNoise.signal << ","
        << signalNoise.noise << ","
@@ -44,9 +45,8 @@ RssiTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
        << randSeed << "," << runTag << "\n";
 }
 
-
 // ==========================================================
-//  Modulation-Aware BER Tracer (real BER + BER in dB, no fake floor)
+//  Modulation-Aware BER Tracer (writes both linear BER and BER in dB)
 // ==========================================================
 static void
 ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
@@ -55,17 +55,16 @@ ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
 {
   if (!csv || !csv->good()) return;
 
-  // --- PHY signal parameters ---
-  double rssi  = signalNoise.signal;
-  double noise = signalNoise.noise;
-  double snrDb = rssi - noise;
-  double snrLinear = std::pow(10.0, snrDb / 10.0);
+  // PHY values
+  const double rssi  = signalNoise.signal;
+  const double noise = signalNoise.noise;
+  const double snrDb = rssi - noise;
+  const double snrLinear = std::pow(10.0, snrDb / 10.0);
 
-  // --- NS-3 Error Rate Model ---
   Ptr<YansErrorRateModel> errModel = CreateObject<YansErrorRateModel>();
   WifiMode mode = txVector.GetMode();
 
-  // --- Modulation class name ---
+  // Modulation class
   std::string modulation;
   switch (mode.GetModulationClass()) {
     case WIFI_MOD_CLASS_DSSS:  modulation = "DSSS"; break;
@@ -76,27 +75,21 @@ ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
     default:                   modulation = "UNKNOWN"; break;
   }
 
-  // --- Compute success probability and BER ---
-  uint64_t nbits = txVector.GetNss() * 8 * 1500;
-  uint8_t channelWidth = txVector.GetChannelWidth();
-  WifiPpduField field = WIFI_PPDU_FIELD_DATA;
+  // error rate model inputs
+  const uint64_t nbits = txVector.GetNss() * 8 * 1500;
+  const uint8_t  chWidth = txVector.GetChannelWidth();
+  const WifiPpduField field = WIFI_PPDU_FIELD_DATA;
 
   double success = errModel->GetChunkSuccessRate(
-      mode, txVector, snrLinear, nbits, channelWidth, field, staId);
+      mode, txVector, snrLinear, nbits, chWidth, field, staId);
 
-  double berLinear = (1.0 - success) / nbits;
+  double berLinear = (1.0 - success) / std::max<uint64_t>(1, nbits);
+  if (berLinear <= 0.0) berLinear = std::numeric_limits<double>::min();
+  const double berDb = 10.0 * std::log10(berLinear);
 
-  // Avoid -inf in log10() when success=1.0 (no errors)
-  if (berLinear <= 0.0)
-      berLinear = std::numeric_limits<double>::min();
+  const uint16_t constellation = mode.GetConstellationSize();
+  const double   phyRateMbps   = mode.GetDataRate(txVector) / 1e6;
 
-  double berDb = 10.0 * std::log10(berLinear);  // convert to dB scale
-
-  // --- PHY rate and constellation ---
-  uint16_t constellation = mode.GetConstellationSize();
-  double phyRateMbps = mode.GetDataRate(txVector) / 1e6;
-
-  // --- Write both linear and dB BER to CSV ---
   *csv << std::scientific << std::setprecision(8)
        << Simulator::Now().GetSeconds() << ","
        << channelFreqMhz << ","
@@ -104,13 +97,12 @@ ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
        << constellation << ","
        << phyRateMbps << ","
        << rssi << "," << noise << "," << snrDb << ","
-       << berLinear << "," << berDb << ","     // both forms
+       << berLinear << "," << berDb << ","
        << randSeed << "," << runTag << "\n";
 }
 
-
 // ==========================================================
-// Dynamic node-density controller
+// Dynamic node-density controller (records intervals in densityLog)
 // ==========================================================
 void ChangeActiveStations(ApplicationContainer &apps, uint32_t &curN,
                           uint32_t nMin, uint32_t nMax, uint32_t seed, double interval)
@@ -148,6 +140,7 @@ WifiBss SetupWifiBss(std::string subnet,double txPower,double areaHalf,
   WifiBss b;
   b.ap.Create(1); b.stas.Create(nSta);
   WifiHelper wifi; wifi.SetStandard(WIFI_STANDARD_80211ac);
+
   YansWifiChannelHelper ch = YansWifiChannelHelper::Default();
   if (indoor) {
     ch.AddPropagationLoss("ns3::LogDistancePropagationLossModel","Exponent",DoubleValue(3.0));
@@ -156,19 +149,23 @@ WifiBss SetupWifiBss(std::string subnet,double txPower,double areaHalf,
     ch.AddPropagationLoss("ns3::FriisPropagationLossModel");
     ch.AddPropagationLoss("ns3::NakagamiPropagationLossModel");
   }
+
   YansWifiPhyHelper phy; phy.SetChannel(ch.Create());
   phy.Set("TxPowerStart",DoubleValue(txPower));
   phy.Set("TxPowerEnd",DoubleValue(txPower));
+
   WifiMacHelper mac; Ssid ssid=Ssid(subnet);
   mac.SetType("ns3::StaWifiMac","Ssid",SsidValue(ssid),"ActiveProbing",BooleanValue(false));
   b.staDevs=wifi.Install(phy,mac,b.stas);
   mac.SetType("ns3::ApWifiMac","Ssid",SsidValue(ssid));
   b.apDev=wifi.Install(phy,mac,b.ap);
+
   MobilityHelper ms; ms.SetMobilityModel("ns3::RandomWalk2dMobilityModel",
         "Bounds",RectangleValue(Rectangle(-areaHalf,areaHalf,-areaHalf,areaHalf)));
   ms.Install(b.stas);
   MobilityHelper ma; ma.SetMobilityModel("ns3::ConstantPositionMobilityModel");
   ma.Install(b.ap);
+
   InternetStackHelper stack; stack.Install(b.ap); stack.Install(b.stas);
   Ipv4AddressHelper ip; ip.SetBase(subnet.c_str(),"255.255.255.0");
   b.staIf=ip.Assign(b.staDevs); b.apIf=ip.Assign(b.apDev);
@@ -218,6 +215,7 @@ int main(int argc, char* argv[])
   cmd.AddValue("densityChangeInterval","",change);
   cmd.Parse(argc, argv);
 
+  // run tag for filenames: DD-Mon-YYYY_HH-MM
   time_t now=time(0); tm* lt=localtime(&now);
   std::ostringstream tag;
   tag<<std::setfill('0')<<std::setw(2)<<lt->tm_mday<<"-"<<std::put_time(lt,"%b")<<"-"<<(1900+lt->tm_year)
@@ -225,6 +223,7 @@ int main(int argc, char* argv[])
   std::string run = tag.str();
   std::string prefix = "outputs/csv/wifi-random-"+run+"-seed"+std::to_string(seed);
 
+  // initial density
   RngSeedManager::SetSeed(seed);
   Ptr<UniformRandomVariable> u=CreateObject<UniformRandomVariable>();
   u->SetAttribute("Min", DoubleValue(nMin));
@@ -232,26 +231,33 @@ int main(int argc, char* argv[])
   activeNodes = (uint32_t)std::floor(u->GetValue());
   if(activeNodes<1) activeNodes=1;
 
+  // build BSS(es)
   WifiBss main = SetupWifiBss("10.1.3.0", txP, area, nMax, indoor);
   WifiBss intf;
   if (inter) intf = SetupWifiBss("10.1.4.0", txP, area, std::max(1u, nMax/3), indoor);
 
+  // traffic
   ApplicationContainer apps = InstallTraffic(main, port, pkt, intv, sim);
   if (inter) InstallTraffic(intf, 8888, pkt, intv, sim);
 
+  // density change schedule
+  densityLog.clear();
   densityLog.push_back({0.0, change, activeNodes});
   Simulator::Schedule(Seconds(change), &ChangeActiveStations,
                       std::ref(apps), std::ref(activeNodes),
                       nMin, nMax, seed, change);
 
+  // flow monitor
   FlowMonitorHelper flowmon; Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
+  // RSSI tracer
   std::ofstream rssi((prefix+"-rssi.csv").c_str());
   rssi << "time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,RandSeed,RunDateTime\n";
   Config::ConnectWithoutContext(
       "/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
       MakeBoundCallback(&RssiTracer, seed, run, &rssi));
 
+  // modulation tracer
   std::ofstream mod((prefix+"-modulation.csv").c_str());
   mod << "time_s,channel_MHz,Modulation,ConstellationSize,PhyRate_Mbps,signal_dBm,noise_dBm,SNR_dB,BER,RandSeed,RunDateTime\n";
   Config::ConnectWithoutContext(
@@ -268,79 +274,96 @@ int main(int argc, char* argv[])
 
   // ---- perf.csv ----
   std::ofstream perf((prefix+"-perf.csv").c_str());
-perf << "FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%),Duration_s,RandSeed,RunDateTime\n";
-for (auto &kv : stats) {
-  Ipv4FlowClassifier::FiveTuple t = cls->FindFlow(kv.first);
-  const FlowMonitor::FlowStats &s = kv.second;
+  perf << "FlowID,Source,Destination,Throughput(Mbps),Latency_avg(ms),Jitter_avg(ms),PacketLoss(%),Duration_s,RandSeed,RunDateTime\n";
+  for (auto &kv : stats) {
+    Ipv4FlowClassifier::FiveTuple t = cls->FindFlow(kv.first);
+    const FlowMonitor::FlowStats &s = kv.second;
 
-  double dur = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
-  double thr = (dur>0 && s.rxBytes>0)? (s.rxBytes*8.0/dur)/1e6 : 0.0;
-  double delay = (s.rxPackets>0)? (s.delaySum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
-  double jit = (s.rxPackets>0)? (s.jitterSum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
-  double loss = (s.txPackets>0)? 100.0*(s.txPackets - s.rxPackets)/s.txPackets : 0.0;
+    const double dur = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
+    const double thr = (dur>0 && s.rxBytes>0)? (s.rxBytes*8.0/dur)/1e6 : 0.0;
+    const double delay = (s.rxPackets>0)? (s.delaySum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
+    const double jit = (s.rxPackets>0)? (s.jitterSum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
+    const double loss = (s.txPackets>0)? 100.0*(s.txPackets - s.rxPackets)/s.txPackets : 0.0;
 
-  perf << kv.first << "," << t.sourceAddress << "," << t.destinationAddress << ","
-       << thr << "," << delay << "," << jit << "," << loss << ","
-       << dur << "," << seed << "," << run << "\n";
-}
-perf.close();
+    perf << kv.first << "," << t.sourceAddress << "," << t.destinationAddress << ","
+         << thr << "," << delay << "," << jit << "," << loss << ","
+         << dur << "," << seed << "," << run << "\n";
+  }
+  perf.close();
 
-
-  // ---- load modulation.csv for realistic BER aggregation ----
+  // ---- load modulation.csv for PHY aggregation ----
   std::vector<std::tuple<double,double,double,double,double>> modData; // t, rssi, noise, snr, ber
   {
     std::ifstream mf((prefix+"-modulation.csv").c_str());
-    std::string line; std::getline(mf, line);
+    std::string line; std::getline(mf, line); // skip header
     double t,ch,constell,rate,sig,noi,snr,ber; char comma;
+
     while (mf >> t >> comma >> ch >> comma) {
-      std::string modName; std::getline(mf, modName, ','); // skip string safely
+      std::string modName; std::getline(mf, modName, ','); // read to comma
       mf >> constell >> comma >> rate >> comma >> sig >> comma >> noi >> comma >> snr >> comma >> ber;
       modData.push_back({t, sig, noi, snr, ber});
     }
   }
 
-  // ---- nodedensity.csv (loss-aware AvgBER from modulation.csv) ----
+  // ---- nodedensity.csv (Fixed aggregation algorithm: one averaged line per interval) ----
   std::ofstream nd((prefix+"-nodedensity.csv").c_str());
   nd << "StartDateTime,EndDateTime,Duration_s,NodeDensity,"
-        "TotalTxPackets,TotalRxPackets,TotalThroughput(Mbps),"
-        "TotalPacketLoss(%),AvgJitter(ms),AvgRSSI(dBm),AvgSNR(dB),AvgBER\n";
+        "TotalTxPackets,TotalRxPackets,AvgThroughput(Mbps),"
+        "PacketLoss(%),AvgLatency(ms),AvgJitter(ms),AvgRSSI(dBm),AvgSNR(dB),AvgBER\n";
 
   time_t base = time(nullptr);
+
   for (auto &r : densityLog) {
     if (r.end > sim) r.end = sim;
-    const double st=r.start, en=r.end, dur=en-st;
+    const double st = r.start, en = r.end, dur = std::max(0.0, en - st);
 
-    double sumThr=0.0, sumJit=0.0; uint64_t totTx=0, totRx=0; int flows=0;
+    double sumThr=0.0, sumLat=0.0, sumJit=0.0;
+    uint64_t totTx=0, totRx=0; uint32_t validFlows=0;
+
+    // Aggregate per-flow stats within this time window
     for (auto &kv : stats) {
       const FlowMonitor::FlowStats &s = kv.second;
-      if (s.timeLastRxPacket.GetSeconds()>=st && s.timeFirstTxPacket.GetSeconds()<=en) {
-        double d = (s.timeLastRxPacket - s.timeFirstRxPacket).GetSeconds();
-        double thr = (d>0 && s.rxBytes>0)? (s.rxBytes*8.0/d)/1e6 : 0.0;
-        double jit = (s.rxPackets>0)? (s.jitterSum.GetSeconds()/s.rxPackets)*1000.0 : 0.0;
-        sumThr += thr; sumJit += jit; totTx += s.txPackets; totRx += s.rxPackets; ++flows;
-      }
-    }
-    const double avgJ = (flows>0)? sumJit/flows : 0.0;
-    const double lossPct = (totTx>0)? 100.0*(double)(totTx - totRx)/totTx : 0.0;
+      if (s.txPackets==0 || s.rxPackets==0) continue;
+      if (s.timeLastRxPacket.GetSeconds() < st || s.timeFirstTxPacket.GetSeconds() > en) continue;
 
+      const double d = (s.timeLastRxPacket - s.timeFirstTxPacket).GetSeconds();
+      if (d <= 0) continue;
+
+      const double thr = (s.rxBytes * 8.0) / d / 1e6;
+      const double lat = (s.delaySum.GetSeconds() / s.rxPackets) * 1000.0;
+      const double jit = (s.jitterSum.GetSeconds() / s.rxPackets) * 1000.0;
+
+      sumThr += thr; sumLat += lat; sumJit += jit;
+      totTx += s.txPackets; totRx += s.rxPackets; validFlows++;
+    }
+
+    const double avgThr = (validFlows>0)? sumThr/validFlows : 0.0;
+    const double avgLat = (validFlows>0)? sumLat/validFlows : 0.0;
+    const double avgJit = (validFlows>0)? sumJit/validFlows : 0.0;
+    const double lossPct = (totTx>0)? 100.0*(totTx - totRx)/totTx : 0.0;
+
+    // Aggregate PHY samples in the same time window
     double sRssi=0, sSnr=0, sBer=0; int rc=0;
     for (auto &x : modData) {
-      double t = std::get<0>(x);
-      if (t>=st && t<en) { sRssi+=std::get<1>(x); sSnr+=std::get<3>(x); sBer+=std::get<4>(x); ++rc; }
+      const double t = std::get<0>(x);
+      if (t>=st && t<en) { sRssi+=std::get<1>(x); sSnr+=std::get<3>(x); sBer+=std::get<4>(x); rc++; }
     }
     const double aRssi = (rc>0)? sRssi/rc : 0.0;
-    const double aSnr  = (rc>0)? sSnr/rc  : 0.0;
-    // loss-aware BER: include PHY BER and inflate by MAC loss
-    const double aBer  = (totRx>0 && rc>0)? (sBer/rc)*(1.0 + lossPct/100.0) : 0.0;
+    const double aSnr  = (rc>0)? sSnr /rc : 0.0;
+    const double aBer  = (rc>0)? (sBer/rc) * (1.0 + lossPct/100.0) : 0.0; // loss-aware
 
+    // human-readable timestamps
     char sb[64], eb[64];
     time_t sT = base + (time_t)st, eT = base + (time_t)en;
-    strftime(sb,sizeof(sb),"%Y-%m-%d %H:%M:%S",localtime(&sT));
-    strftime(eb,sizeof(eb),"%Y-%m-%d %H:%M:%S",localtime(&eT));
+    strftime(sb,sizeof(sb),"%Y-%m-%d %H:%M:%S", localtime(&sT));
+    strftime(eb,sizeof(eb),"%Y-%m-%d %H:%M:%S", localtime(&eT));
 
-    nd << sb << "," << eb << "," << dur << "," << r.nodes << ","
-       << totTx << "," << totRx << "," << sumThr << "," << lossPct << ","
-       << avgJ << "," << aRssi << "," << aSnr << "," << aBer << "\n";
+    nd << sb << "," << eb << "," << dur << ","
+       << r.nodes << ","
+       << totTx << "," << totRx << ","
+       << avgThr << "," << lossPct << ","
+       << avgLat << "," << avgJit << ","
+       << aRssi << "," << aSnr << "," << aBer << "\n";
   }
   nd.close();
 
