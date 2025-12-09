@@ -1118,11 +1118,13 @@ HePhy::GetCcaThreshold(const Ptr<const WifiPpdu> ppdu, WifiChannelListType chann
 }
 
 void
-HePhy::SwitchMaybeToCcaBusy(const Ptr<const WifiPpdu> ppdu)
+HePhy::SwitchMaybeToCcaBusy(const Ptr<const WifiPpdu> ppdu /* = nullptr */)
 {
     NS_LOG_FUNCTION(this);
+
     const auto ccaIndication = GetCcaIndication(ppdu);
     const auto per20MHzDurations = GetPer20MHzDurations(ppdu);
+
     if (ccaIndication.has_value())
     {
         NS_LOG_DEBUG("CCA busy for " << ccaIndication.value().second << " during "
@@ -1130,11 +1132,19 @@ HePhy::SwitchMaybeToCcaBusy(const Ptr<const WifiPpdu> ppdu)
         NotifyCcaBusy(ccaIndication.value().first, ccaIndication.value().second, per20MHzDurations);
         return;
     }
+
     if (ppdu)
     {
-        SwitchMaybeToCcaBusy(nullptr);
+        SwitchMaybeToCcaBusy();
         return;
     }
+
+    // avoid spurious notification if the channel width changed
+    if (m_lastPer20MHzDurations.size() != per20MHzDurations.size())
+    {
+        m_lastPer20MHzDurations.resize(per20MHzDurations.size());
+    }
+
     if (per20MHzDurations != m_lastPer20MHzDurations)
     {
         /*
@@ -1143,6 +1153,12 @@ HePhy::SwitchMaybeToCcaBusy(const Ptr<const WifiPpdu> ppdu)
          */
         NS_LOG_DEBUG("per-20MHz CCA durations changed");
         NotifyCcaBusy(Seconds(0), WIFI_CHANLIST_PRIMARY, per20MHzDurations);
+    }
+
+    if (m_wifiPhy->IsStateCcaBusy())
+    {
+        NS_LOG_DEBUG("Update CCA indication to IDLE");
+        m_state->SwitchMaybeToCcaBusy(Seconds(0), WIFI_CHANLIST_PRIMARY, per20MHzDurations);
     }
 }
 
@@ -1779,7 +1795,7 @@ HePhy::GetWifiConstPsduMap(Ptr<const WifiPsdu> psdu, const WifiTxVector& txVecto
 uint32_t
 HePhy::GetMaxPsduSize() const
 {
-    return 6500631;
+    return WIFI_PSDU_MAX_LENGTH_HE;
 }
 
 bool

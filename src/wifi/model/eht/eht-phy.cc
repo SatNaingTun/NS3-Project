@@ -428,6 +428,12 @@ EhtPhy::CalculateNonHtReferenceRate(WifiCodeRate codeRate, uint16_t constellatio
     return dataRate;
 }
 
+uint32_t
+EhtPhy::GetMaxPsduSize() const
+{
+    return WIFI_PSDU_MAX_LENGTH_EHT;
+}
+
 dBm_u
 EhtPhy::Per20MHzCcaThreshold(const Ptr<const WifiPpdu> ppdu) const
 {
@@ -527,7 +533,7 @@ EhtPhy::GetPer20MHzDurations(const Ptr<const WifiPpdu> ppdu)
          * aCCATime after the signal starts and shall continue to indicate the 20 MHz subchannel is
          * busy while the threshold continues to be exceeded.
          */
-        dBm_u ccaThreshold = -62;
+        dBm_u ccaThreshold = m_wifiPhy->GetCcaEdThreshold();
         auto delayUntilCcaEnd = GetDelayUntilCcaEnd(ccaThreshold, band);
 
         if (ppdu)

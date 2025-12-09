@@ -206,6 +206,7 @@ def parse_args(argv):
         ),
         ("build-version", "embedding git changes as a build version during build"),
         ("clang-tidy", "clang-tidy static analysis"),
+        ("clang-tidy-fix", "clang-tidy static analysis and apply automatic fixes"),
         ("dpdk", "the fd-net-device DPDK features"),
         ("eigen", "Eigen3 library support"),
         ("examples", "the ns-3 examples"),
@@ -1540,7 +1541,11 @@ def run_step(args, target_to_run, target_args):
             if target_to_run in ["mpiexec", "mpirun"] and os.getenv("MPI_CI"):
                 if shutil.which("ompi_info"):
                     try:
-                        subprocess.check_call([target_to_run, "--allow-run-as-root", "dir"])
+                        subprocess.check_call(
+                            [target_to_run, "--allow-run-as-root", "cmake", "--version"],
+                            stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL,
+                        )
                         target_args = ["--allow-run-as-root"] + target_args
                     except subprocess.CalledProcessError:
                         pass
@@ -2066,6 +2071,24 @@ def main():
         elif ".py" in target_to_run and os.path.exists(target_to_run):
             # We let python scripts pass to be able to run ./utils/python-unit-tests.py
             pass
+        elif "clang-tidy" in target_to_run:
+            clang_tidy_versions = ["run-clang-tidy"]
+            clang_tidy_versions = list(map(lambda x: shutil.which(x), clang_tidy_versions))
+            clang_tidy_versions = list(filter(lambda x: x, clang_tidy_versions))
+            if not clang_tidy_versions:
+                raise Exception(
+                    "Clang-tidy not found; please install it, or modify the PATH environment variable"
+                )
+            target_to_run = clang_tidy_versions[-1]
+            target_args = [
+                "-p",
+                current_cmake_cache_folder,
+                "-quiet",
+                "-format",
+                "-warnings-as-errors=*",
+            ] + target_args
+            run_only = True
+            build_and_run = False
         else:
             raise Exception("Couldn't find the specified program: %s" % target_to_run)
 

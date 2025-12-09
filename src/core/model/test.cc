@@ -6,15 +6,19 @@
 
 #include "test.h"
 
-#include "abort.h"
 #include "assert.h"
 #include "config.h"
-#include "des-metrics.h"
+#include "fatal-error.h"
 #include "log.h"
 #include "rng-seed-manager.h"
 #include "singleton.h"
 #include "system-path.h"
 
+#ifdef ENABLE_DES_METRICS
+#include "des-metrics.h"
+#endif
+
+#include <algorithm>
 #include <cmath>
 #include <cstring>
 #include <list>

@@ -22,9 +22,7 @@
 #include "rng-seed-manager.h"
 #include "rng-stream.h"
 #include "string.h"
-#include "uinteger.h"
 
-#include <algorithm> // upper_bound
 #include <cmath>
 #include <iostream>
 #include <numbers>
@@ -687,6 +685,12 @@ NormalRandomVariable::NormalRandomVariable()
     NS_LOG_FUNCTION(this);
 }
 
+void
+NormalRandomVariable::SetStdDev(double stdDev)
+{
+    m_variance = stdDev * stdDev;
+}
+
 double
 NormalRandomVariable::GetMean() const
 {
@@ -697,6 +701,12 @@ double
 NormalRandomVariable::GetVariance() const
 {
     return m_variance;
+}
+
+double
+NormalRandomVariable::GetStdDev() const
+{
+    return sqrt(m_variance);
 }
 
 double

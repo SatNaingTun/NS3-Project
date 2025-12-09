@@ -100,14 +100,16 @@ Moreover, clang-tidy is integrated with CMake, enabling code scanning during the
 
 .. note::
 
-  Check the list of supported versions of clang-format in the ``utils/check-style-clang-format.py`` program
-  or in the `coding-style.rst <https://gitlab.com/nsnam/ns-3-dev/-/blob/master/doc/contributing/source/coding-style.rst>`_ document.
+  Check the list of supported versions of clang-format and clang-tidy in the
+  `RELEASE_NOTES.md <https://gitlab.com/nsnam/ns-3-dev/-/blob/master/RELEASE_NOTES.md>`_ document.
 
 clang-format is strongly recommended to write code that follows the ns-3 code conventions, but
 might be skipped for simpler tasks (e.g., writing a simple simulation script for yourself).
 
 clang-tidy is recommended when writing a module, to both follow code conventions and to provide
-hints on possible bugs in code.
+hints on possible bugs in code. Note: when using CMake's ``include_directories()`` to include a
+third-party dependency directory, it is important to set the ``SYSTEM`` flag, to prevent clang-tidy
+from checking code that is not under our control (e.g. ``include_directories(SYSTEM ${SQLite3_INCLUDE_DIRS})``).
 
 Both are used in the CI system, and a merge request will likely fail if you did not use them.
 

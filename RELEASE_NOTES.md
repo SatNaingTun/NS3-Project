@@ -38,6 +38,47 @@ been tested on Linux. As of this release, the latest known version to work with 
 
 ### Bugs fixed
 
+- (wifi) Fix incorrect aPSDUMaxLength value for 802.11be.
+- (wifi) Fix hardcoded threshold value in EHT PHY to determine per-20MHz CCA indication.
+
+## Release 3.46.1
+
+ns-3.46.1 is a small update to ns-3.46 to fix build issues discovered after release.
+There should be no model behavior or API changes compared with ns-3.46.
+
+This release is available from:
+<https://www.nsnam.org/release/ns-3.46.1.tar.bz2>
+
+### Supported platforms
+
+This release is intended to work on systems with the following minimal
+requirements (Note: not all ns-3 features are available on all systems):
+
+- g++-11.1 or later, or LLVM/clang++-17 or later
+- Python 3.8 or later
+- CMake 3.20 or later
+- (macOS only) Xcode 16.2 or later
+- (Windows only) Msys2/MinGW64, Msys2/UCRT64 and ClangCL/MSVC toolchains, or WSL2
+
+The version of clang-format enforced by the check-style-clang-format.py script for
+this release is version 20 only.
+
+Version 20 of the clang-tidy linter is now supported and recommended, although versions 15-19
+are still compatible.
+
+Python API requires [Cppyy](https://cppyy.readthedocs.io/en/latest/installation.html) and has only
+been tested on Linux. As of this release, the latest known version to work with ns-3 is cppyy==3.5.0.
+
+### New user-visible features
+
+- (doc) New module documentation for mobility and propagation modules
+
+### Bugs fixed
+
+- (build) The ns3 script was not compatible with Python 3.14
+- (build) A missing header include in test.cc was breaking the g++-12 build
+- (build) Fixed OpenMPI-based build on Alpine Linux
+
 ## Release 3.46
 
 This release is available from:
@@ -126,6 +167,7 @@ to work with the release.
 - (lr-wpan) - !2429 - Documentation update and small reformat fixes.
 - (wifi) 320 MHz channel support was added to the 802.11be model
 - (wifi) Added the `ProtectSingleExchange` attribute to the `QosFrameExchangeManager` to choose whether the NAV protection should cover the entire TXOP or only the current frame exchange when the TXOP limit is non-zero. In that case, the Duration/ID field in frames establishing the protection is set to the time remaining until the end of the current frame exchange. It is also possible to select whether the NAV duration should be extended by an additional time to protect beyond end of the immediate frame exchange via the `SingleExchangeProtectionSurplus` attribute of the `QosFrameExchangeManager`.
+- (tcp) !2410 - Added support for ABE (Alternative Backoff with ECN)
 
 ### Bugs fixed
 

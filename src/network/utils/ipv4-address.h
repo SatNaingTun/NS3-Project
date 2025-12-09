@@ -11,7 +11,9 @@
 
 #include "ns3/address.h"
 #include "ns3/attribute-helper.h"
+#include "ns3/deprecated.h"
 
+#include <compare>
 #include <ostream>
 #include <stdint.h>
 
@@ -30,7 +32,7 @@ class Ipv4Mask;
 class Ipv4Address
 {
   public:
-    Ipv4Address();
+    Ipv4Address() = default;
     /**
      * input address is in host order.
      * @param address The host order 32-bit address
@@ -43,9 +45,28 @@ class Ipv4Address
      * \c hhh.xxx.xxx.lll
      * where \c h is the high byte and \c l the
      * low byte
+     *
      * @param address C-string containing the address as described above
      */
     Ipv4Address(const char* address);
+
+    /**
+     * @brief Checks if the string contains an Ipv4Address
+     *
+     * Input address is in format:
+     * \c hhh.xxx.xxx.lll
+     * where \c h is the high byte and \c l the
+     * low byte
+     *
+     * Note: the function uses ``inet_pton`` internally.
+     *
+     * @see Address::CheckCompatible hich has a similar name but which
+     * instead checks the underlying type and length embedded in the Address.
+     *
+     * @param addressStr string containing the address as described above
+     * @return true if the string can be parsed as an IPv4 address
+     */
+    static bool CheckCompatible(const std::string& addressStr);
     /**
      * Get the host-order 32-bit IP address
      * @return the host-order 32-bit IP address
@@ -91,6 +112,7 @@ class Ipv4Address
     /**
      * @return true if address is initialized (i.e., set to something), false otherwise
      */
+    NS_DEPRECATED_3_47("Use IsAny or std::optional")
     bool IsInitialized() const;
     /**
      * @return true if address is 0.0.0.0; false otherwise
@@ -190,6 +212,7 @@ class Ipv4Address
     static Ipv4Address GetZero();
     /**
      * @return the 0.0.0.0 address
+     * @hidecaller
      */
     static Ipv4Address GetAny();
     /**
@@ -201,6 +224,14 @@ class Ipv4Address
      */
     static Ipv4Address GetLoopback();
 
+    /**
+     * @brief Three-way comparison operator.
+     *
+     * @param other the other address to compare with
+     * @returns comparison result
+     */
+    std::strong_ordering operator<=>(const Ipv4Address& other) const = default;
+
   private:
     /**
      * @brief Get the underlying address type (automatically assigned).
@@ -208,35 +239,7 @@ class Ipv4Address
      * @returns the address type
      */
     static uint8_t GetType();
-    uint32_t m_address; //!< IPv4 address
-    bool m_initialized; //!< IPv4 address has been explicitly initialized to a valid value.
-
-    /**
-     * @brief Equal to operator.
-     *
-     * @param a the first operand.
-     * @param b the first operand.
-     * @returns true if the operands are equal.
-     */
-    friend bool operator==(const Ipv4Address& a, const Ipv4Address& b);
-
-    /**
-     * @brief Not equal to operator.
-     *
-     * @param a the first operand.
-     * @param b the first operand.
-     * @returns true if the operands are not equal.
-     */
-    friend bool operator!=(const Ipv4Address& a, const Ipv4Address& b);
-
-    /**
-     * @brief Less than to operator.
-     *
-     * @param a the first operand.
-     * @param b the first operand.
-     * @returns true if the first operand is less than the second.
-     */
-    friend bool operator<(const Ipv4Address& a, const Ipv4Address& b);
+    uint32_t m_address{0}; //!< IPv4 address
 };
 
 /**
@@ -254,9 +257,9 @@ class Ipv4Mask
 {
   public:
     /**
-     * Will initialize to a garbage value (0x66666666)
+     * Will initialize to a zero-length mask, which will match any address.
      */
-    Ipv4Mask();
+    Ipv4Mask() = default;
     /**
      * @param mask bitwise integer representation of the mask
      *
@@ -314,25 +317,15 @@ class Ipv4Mask
     static Ipv4Mask GetOnes();
 
     /**
-     * @brief Equal to operator.
+     * @brief Three-way comparison operator.
      *
-     * @param a the first operand.
-     * @param b the first operand.
-     * @returns true if the operands are equal.
+     * @param a the other mask to compare with
+     * @returns comparison result
      */
-    friend bool operator==(const Ipv4Mask& a, const Ipv4Mask& b);
-
-    /**
-     * @brief Not equal to operator.
-     *
-     * @param a the first operand.
-     * @param b the first operand.
-     * @returns true if the operands are not equal.
-     */
-    friend bool operator!=(const Ipv4Mask& a, const Ipv4Mask& b);
+    std::strong_ordering operator<=>(const Ipv4Mask& a) const = default;
 
   private:
-    uint32_t m_mask; //!< IP mask
+    uint32_t m_mask{0}; //!< IP mask
 };
 
 ATTRIBUTE_HELPER_HEADER(Ipv4Address);
@@ -371,30 +364,12 @@ std::istream& operator>>(std::istream& is, Ipv4Address& address);
  */
 std::istream& operator>>(std::istream& is, Ipv4Mask& mask);
 
-inline bool
-operator==(const Ipv4Address& a, const Ipv4Address& b)
-{
-    return a.m_address == b.m_address;
-}
-
-inline bool
-operator!=(const Ipv4Address& a, const Ipv4Address& b)
-{
-    return a.m_address != b.m_address;
-}
-
-inline bool
-operator<(const Ipv4Address& a, const Ipv4Address& b)
-{
-    return a.m_address < b.m_address;
-}
-
 /**
  * @ingroup address
  *
  * @brief Class providing an hash for IPv4 addresses
  */
-class Ipv4AddressHash
+class NS_DEPRECATED_3_47("Unnecessary thanks to std::hash specialization, remove") Ipv4AddressHash
 {
   public:
     /**
@@ -408,18 +383,27 @@ class Ipv4AddressHash
     size_t operator()(const Ipv4Address& x) const;
 };
 
-inline bool
-operator==(const Ipv4Mask& a, const Ipv4Mask& b)
-{
-    return a.m_mask == b.m_mask;
-}
-
-inline bool
-operator!=(const Ipv4Mask& a, const Ipv4Mask& b)
-{
-    return a.m_mask != b.m_mask;
-}
-
 } // namespace ns3
+
+namespace std
+{
+
+/**
+ * @brief Hash function class for IPv4 addresses.
+ */
+template <>
+struct hash<ns3::Ipv4Address>
+{
+    /**
+     * @brief Returns the hash of an IPv4 address.
+     * @param addr IPv4 address to hash
+     * @returns the hash of the address
+     */
+    size_t operator()(const ns3::Ipv4Address& addr) const
+    {
+        return std::hash<uint32_t>()(addr.Get());
+    }
+};
+} // namespace std
 
 #endif /* IPV4_ADDRESS_H */
