@@ -1,1 +1,3 @@
-time_s,channel_MHz,signal_dBm,noise_dBm
+version https://git-lfs.github.com/spec/v1
+oid sha256:42ef09e325e4023cd23c38af1c30fd5156a17890cae7197a377f57c89b9895fd
+size 40
