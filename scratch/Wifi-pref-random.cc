@@ -197,7 +197,7 @@ int main(int argc, char* argv[])
 {
   bool indoor=true; uint32_t nMin=5, nMax=30;
   double area=50.0, sim=30.0, txP=16.0;
-  bool inter=true; uint32_t seed=12345;
+  bool inter=true; uint32_t seed=07;
   uint16_t port=9999; uint32_t pkt=1024; double intv=10.0;
   double change=5.0;
 
@@ -221,7 +221,7 @@ int main(int argc, char* argv[])
   tag<<std::setfill('0')<<std::setw(2)<<lt->tm_mday<<"-"<<std::put_time(lt,"%b")<<"-"<<(1900+lt->tm_year)
      <<"_"<<std::setw(2)<<lt->tm_hour<<"-"<<std::setw(2)<<lt->tm_min;
   std::string run = tag.str();
-  std::string prefix = "outputs/csv/wifi-random-"+run+"-seed"+std::to_string(seed);
+  std::string prefix = "outputs/csv/wifi-random/wifi-random-"+run+"-seed"+std::to_string(seed);
 
   // initial density
   RngSeedManager::SetSeed(seed);
