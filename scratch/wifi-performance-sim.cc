@@ -1,5 +1,6 @@
 // =============================================================
-//   Wifi-pref-random.cc  (Original version, patched)
+//   Wifi-pref-random.cc  (Original-based, with per-STA PHY capture
+//   and non-zero fallback for AvgRSSI/AvgSNR/AvgBER)
 // =============================================================
 
 #include "ns3/core-module.h"
@@ -38,17 +39,25 @@ struct DensityRecord {
 static std::vector<DensityRecord> densityLog;
 
 // ========================================================
-// RSSI tracer (original)
+// RSSI tracer (per-STA, using MonitorSnifferRx on each STA Phy)
 // ========================================================
 static void
-RssiTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
-           Ptr<const Packet>, uint16_t channelFreqMhz, WifiTxVector,
-           MpduInfo, SignalNoiseDbm signalNoise, uint16_t)
+RssiTracer(uint32_t staIndex,
+           uint32_t randSeed,
+           std::string runTag,
+           std::ofstream *csv,
+           Ptr<const Packet>,
+           uint16_t channelFreqMhz,
+           WifiTxVector,
+           MpduInfo,
+           SignalNoiseDbm signalNoise,
+           uint16_t)
 {
     if (!csv || !csv->good()) return;
 
     (*csv) << std::fixed << std::setprecision(6)
            << Simulator::Now().GetSeconds() << ","
+           << staIndex << ","
            << channelFreqMhz << ","
            << signalNoise.signal << ","
            << signalNoise.noise << ","
@@ -57,16 +66,19 @@ RssiTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
 }
 
 // ========================================================
-// Modulation-aware BER tracer (original)
+// Modulation-aware BER tracer (per-STA)
 // ========================================================
 static void
-ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
+ModulationBerTracer(uint32_t staIndex,
+                    uint32_t randSeed,
+                    std::string runTag,
+                    std::ofstream *csv,
                     Ptr<const Packet>,
                     uint16_t channelFreqMhz,
                     WifiTxVector txVector,
                     MpduInfo,
                     SignalNoiseDbm signalNoise,
-                    uint16_t staId)
+                    uint16_t)
 {
     if (!csv || !csv->good()) return;
 
@@ -83,7 +95,7 @@ ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
 
     double succ = err->GetChunkSuccessRate(mode, txVector, snrLinear,
                                            nbits, chWidth,
-                                           WIFI_PPDU_FIELD_DATA, staId);
+                                           WIFI_PPDU_FIELD_DATA, 0);
 
     double berLinear = (1.0 - succ) / std::max<uint64_t>(1, nbits);
     if (berLinear <= 0.0)
@@ -103,6 +115,7 @@ ModulationBerTracer(uint32_t randSeed, std::string runTag, std::ofstream *csv,
 
     (*csv) << std::scientific << std::setprecision(8)
            << Simulator::Now().GetSeconds() << ","
+           << staIndex << ","
            << channelFreqMhz << ","
            << modName << ","
            << mode.GetConstellationSize() << ","
@@ -246,14 +259,14 @@ ApplicationContainer InstallTraffic(WifiBss &b,
 }
 
 // ========================================================
-// MAIN (original + patch)
+// MAIN
 // ========================================================
 int main(int argc, char *argv[])
 {
     uint32_t nMin = 5, nMax = 30;
     double simTime = 30.0, txPower = 16.0;
     double area = 50.0;
-    uint32_t seed = 8;
+    uint32_t seed = 7;
     double change = 5.0;
     uint32_t pktSize = 1024;
     double clientIntv = 10.0;
@@ -289,6 +302,7 @@ int main(int argc, char *argv[])
     rnd->SetAttribute("Min", DoubleValue(nMin));
     rnd->SetAttribute("Max", DoubleValue(nMax + 1));
     activeNodes = rnd->GetInteger();
+    if (activeNodes < 1) activeNodes = 1;
 
     // Setup Wi-Fi
     WifiBss bss = SetupWifiBss("10.1.3.0", txPower, area, nMax, indoor);
@@ -312,24 +326,33 @@ int main(int argc, char *argv[])
     Ptr<FlowMonitor> monitor = flowmon.InstallAll();
 
     // ============================
-    // CSV tracers (original)
+    // CSV tracers (per-STA)
     // ============================
     std::ofstream rssi((prefix + "-rssi.csv").c_str());
-    rssi << "time_s,channel_MHz,signal_dBm,noise_dBm,SNR_dB,"
+    rssi << "time_s,StaId,channel_MHz,signal_dBm,noise_dBm,SNR_dB,"
             "RandSeed,RunDateTime\n";
 
-    Config::ConnectWithoutContext(
-        "/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
-        MakeBoundCallback(&RssiTracer, seed, runTag, &rssi));
-
     std::ofstream mod((prefix + "-modulation.csv").c_str());
-    mod << "time_s,channel_MHz,Modulation,ConstellationSize,PhyRate_Mbps,"
-           "signal_dBm,noise_dBm,SNR_dB,BERLinear,BER_dB,"
+    mod << "time_s,StaId,channel_MHz,Modulation,ConstellationSize,"
+           "PhyRate_Mbps,signal_dBm,noise_dBm,SNR_dB,BERLinear,BER_dB,"
            "RandSeed,RunDateTime\n";
 
-    Config::ConnectWithoutContext(
-        "/NodeList/*/DeviceList/*/$ns3::WifiNetDevice/Phy/MonitorSnifferRx",
-        MakeBoundCallback(&ModulationBerTracer, seed, runTag, &mod));
+    // Attach tracers to each STA's WifiPhy (per-STA capture)
+    for (uint32_t i = 0; i < bss.stas.GetN(); ++i)
+    {
+        Ptr<Node> node = bss.stas.Get(i);
+        Ptr<NetDevice> nd = node->GetDevice(0);
+        Ptr<WifiNetDevice> wifiDev = DynamicCast<WifiNetDevice>(nd);
+        Ptr<WifiPhy> phy = wifiDev->GetPhy();
+
+        phy->TraceConnectWithoutContext(
+            "MonitorSnifferRx",
+            MakeBoundCallback(&RssiTracer, i, seed, runTag, &rssi));
+
+        phy->TraceConnectWithoutContext(
+            "MonitorSnifferRx",
+            MakeBoundCallback(&ModulationBerTracer, i, seed, runTag, &mod));
+    }
 
     Simulator::Stop(Seconds(simTime + 1));
     Simulator::Run();
@@ -340,7 +363,7 @@ int main(int argc, char *argv[])
 
     // ====================================================
     // PERF CSV (original)
-    // ====================================================
+// ====================================================
     monitor->CheckForLostPackets();
     auto stats = monitor->GetFlowStats();
     Ptr<Ipv4FlowClassifier> cls =
@@ -380,29 +403,63 @@ int main(int argc, char *argv[])
     perf.close();
 
     // =====================================================
-    // LOAD modulation.csv (original)
+    // LOAD modulation.csv (with StaId at column 2)
+    // We only need: time_s, signal_dBm, noise_dBm, SNR_dB, BERLinear
     // =====================================================
     std::vector<std::tuple<double,double,double,double,double>> modData;
     {
         std::ifstream mf((prefix + "-modulation.csv").c_str());
-        std::string hdr; std::getline(mf, hdr);
+        std::string line;
+        std::getline(mf, line); // header
 
-        double t, ch, constell, rate, sig, noi, snr, berLin, berDb;
-        char comma;
+        while (std::getline(mf, line)) {
+            if (line.empty()) continue;
+            std::stringstream ss(line);
+            std::string field;
 
-        while (mf >> t >> comma >> ch >> comma) {
-            std::string modName;
-            std::getline(mf, modName, ',');
-            mf >> constell >> comma >> rate >> comma
-               >> sig >> comma >> noi >> comma
-               >> snr >> comma >> berLin >> comma >> berDb;
+            // time_s
+            if (!std::getline(ss, field, ',')) continue;
+            double t = std::atof(field.c_str());
+
+            // StaId (ignored here)
+            if (!std::getline(ss, field, ',')) continue;
+
+            // channel_MHz (ignored)
+            if (!std::getline(ss, field, ',')) continue;
+
+            // Modulation (ignored string)
+            if (!std::getline(ss, field, ',')) continue;
+
+            // ConstellationSize (ignored)
+            if (!std::getline(ss, field, ',')) continue;
+
+            // PhyRate_Mbps (ignored)
+            if (!std::getline(ss, field, ',')) continue;
+
+            // signal_dBm
+            if (!std::getline(ss, field, ',')) continue;
+            double sig = std::atof(field.c_str());
+
+            // noise_dBm
+            if (!std::getline(ss, field, ',')) continue;
+            double noi = std::atof(field.c_str());
+
+            // SNR_dB
+            if (!std::getline(ss, field, ',')) continue;
+            double snr = std::atof(field.c_str());
+
+            // BERLinear
+            if (!std::getline(ss, field, ',')) continue;
+            double berLin = std::atof(field.c_str());
+
+            // We ignore BER_dB, RandSeed, RunDateTime if present
             modData.push_back({t, sig, noi, snr, berLin});
         }
     }
 
     // =====================================================
-    // NODE DENSITY CSV (original + PATCH)
-    // =====================================================
+    // NODE DENSITY CSV (original + forward-fill patch)
+// =====================================================
     std::ofstream nd((prefix + "-nodedensity.csv").c_str());
     nd << "StartDateTime,EndDateTime,Duration_s,NodeDensity,"
           "TotalTxPackets,TotalRxPackets,AvgThroughput(Mbps),"
@@ -411,9 +468,7 @@ int main(int argc, char *argv[])
 
     time_t base = time(nullptr);
 
-    // ============================
-    // PATCH: Forward fill memory
-    // ============================
+    // Forward-fill memory for PHY values
     static double lastRssi = 0.0;
     static double lastSnr  = 0.0;
     static double lastBer  = 0.0;
@@ -459,10 +514,7 @@ int main(int argc, char *argv[])
         double avgJit = flows ? sumJit / flows : 0.0;
         double lossPct = txTot > 0 ? 100.0 * (txTot - rxTot) / txTot : 0.0;
 
-        // ======================================================
-        // =============== PATCH ADDED HERE ======================
-        // Forward-fill PHY values (NO MORE ZERO INTERVALS)
-        // ======================================================
+        // Aggregate PHY samples in [st, en)
         double sR = 0, sS = 0, sB = 0;
         int rc = 0;
         for (auto &x : modData) {
@@ -470,7 +522,7 @@ int main(int argc, char *argv[])
             if (t >= st && t < en) {
                 sR += std::get<1>(x); // RSSI
                 sS += std::get<3>(x); // SNR
-                sB += std::get<4>(x); // BER linear
+                sB += std::get<4>(x); // BERLinear
                 rc++;
             }
         }
@@ -486,11 +538,11 @@ int main(int argc, char *argv[])
             lastSnr  = aS;
             lastBer  = aB;
         } else {
+            // Forward-fill from last non-zero values
             aR = lastRssi;
             aS = lastSnr;
             aB = lastBer;
         }
-        // ======================================================
 
         char sbuf[64], ebuf[64];
         time_t s1 = base + (time_t)st;
