@@ -201,4 +201,20 @@ def evaluate_edge_metrics(model, input_dim, device="cpu"):
 def evaluate_model(pt_model, input_dim, device="cpu"):
     return evaluate_edge_metrics(pt_model, input_dim, device=device)
 
+def evaluate_lr_edge(model_path, input_dim,scaler_path="../../outputs/models/lr_scaler.pkl", device="cpu"):
+    """
+    Full LR edge evaluation pipeline.
+    """
+
+    # Load model
+    sk_model, scaler, pt_model = load_lr_model(model_path, scaler_path, input_dim)
+
+    # Evaluate metrics
+    results = evaluate_edge_metrics(pt_model, input_dim, device=device)
+
+    # Add model path info
+    results["Model Path"] = model_path
+
+    return results
+
 
