@@ -39,7 +39,7 @@ int main(int argc, char *argv[])
   bool enableInterference = true;
   double areaHalf = 50.0;
   double simTime = 30.0;
-  double bgLoadMbps = 10.0;
+  // double bgLoadMbps = 10.0;
   uint32_t seed = 12345;
   uint16_t appPort = 9999;
   uint32_t packetSize = 1024;
