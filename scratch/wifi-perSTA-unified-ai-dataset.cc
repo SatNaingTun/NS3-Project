@@ -30,12 +30,11 @@ static constexpr double SAMPLE_INTERVAL = 0.1;
 struct Sample
 {
   double time;
-  double throughput;   // Mbps
-  double delay;        // ms
-  double loss;         // packet loss rate
+  double throughput;
+  double delay;
   double dhcpTime;
-  std::string link;    // LOS / MID / NLOS
-  std::string dir;     // UL / DL
+  std::string link;
+  std::string dir;   // UL / DL
 };
 
 static std::map<uint32_t, std::vector<Sample>> g_series;
@@ -71,7 +70,7 @@ SampleStats (Ptr<FlowMonitor> fm,
   for (const auto &kv : fm->GetFlowStats ())
   {
     const FlowMonitor::FlowStats &st = kv.second;
-    if (st.txPackets == 0)
+    if (st.rxPackets == 0)
       continue;
 
     Ipv4FlowClassifier::FiveTuple f =
@@ -92,22 +91,13 @@ SampleStats (Ptr<FlowMonitor> fm,
       (st.rxBytes * 8.0) /
       (Simulator::Now ().GetSeconds () * 1e6);
 
-    double delayMs = 0.0;
-    if (st.rxPackets > 0)
-    {
-      delayMs =
-        (st.delaySum.GetSeconds () / st.rxPackets) * 1000.0;
-    }
-
-    double lossRate =
-      static_cast<double>(st.lostPackets) /
-      static_cast<double>(st.txPackets);
+    double delayMs =
+      (st.delaySum.GetSeconds () / st.rxPackets) * 1000.0;
 
     g_series[staId].push_back ({
       Simulator::Now ().GetSeconds (),
       throughputMbps,
       delayMs,
-      lossRate,
       g_dhcpTime[staId],
       LinkState (
         sta.Get (staId)->GetObject<MobilityModel> (),
@@ -166,13 +156,14 @@ main ()
 
     mob.Install (sta.Get (i));
 
+    // Initial position MUST be inside bounds
     sta.Get (i)->GetObject<MobilityModel> ()
       ->SetPosition (Vector (
         rv->GetValue (-25.0, 25.0),
         rv->GetValue (-25.0, 25.0),
         1.5));
 
-    // Emulated DHCP completion time
+    // Emulated DHCP completion time (feature)
     g_dhcpTime[i] = rv->GetValue (0.5, 2.0);
   }
 
@@ -186,6 +177,7 @@ main ()
   channel->SetPropagationLossModel (
     CreateObject<LogDistancePropagationLossModel> ());
 
+  // REQUIRED: fixes null pointer crash
   channel->SetPropagationDelayModel (
     CreateObject<ConstantSpeedPropagationDelayModel> ());
 
@@ -217,13 +209,16 @@ main ()
 
   /* ---------- Traffic ---------- */
 
-  // Uplink server
+  // Uplink server on AP
   UdpServerHelper ulServer (5000);
   ulServer.Install (ap.Get (0));
 
-  // Downlink servers
+  // Downlink servers on STAs
   for (uint32_t i = 0; i < nSta; ++i)
-    UdpServerHelper (6000 + i).Install (sta.Get (i));
+  {
+    UdpServerHelper dlServer (6000 + i);
+    dlServer.Install (sta.Get (i));
+  }
 
   // Uplink clients
   for (uint32_t i = 0; i < nSta; ++i)
@@ -283,7 +278,6 @@ main ()
         << "time,"
         << "throughput,"
         << "delay,"
-        << "loss,"
         << "dhcpTime,"
         << "link,"
         << "direction\n";
@@ -299,7 +293,6 @@ main ()
           << s.time << ","
           << s.throughput << ","
           << s.delay << ","
-          << s.loss << ","
           << s.dhcpTime << ","
           << s.link << ","
           << s.dir << "\n";
