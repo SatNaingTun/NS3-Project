@@ -228,8 +228,10 @@ int main ()
   Ptr<FlowMonitor> fm = fmHelper.InstallAll ();
   Ptr<Ipv4FlowClassifier> classifier =
     DynamicCast<Ipv4FlowClassifier> (fmHelper.GetClassifier ());
+  namespace fs = std::filesystem;
+  fs::create_directories ("output/csv/wifi-2026");
 
-  std::ofstream out ("persta_ai_dataset_bursty.csv");
+  std::ofstream out ("output/csv/wifi-2026/persta_bursty.csv");
   out << "time,staId,nSta,los_state,throughput,delay,jitter,loss\n";
 
   Simulator::Schedule (
