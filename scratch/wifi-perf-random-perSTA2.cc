@@ -346,7 +346,7 @@ main(int argc, char *argv[])
     double   simTime   = 30.0;
     double   txPower   = 20.0;     // INCREASED: Higher TX power (was 16.0)
     double   area      = 40.0;     // REDUCED: Smaller area for better coverage (was 50.0)
-    uint32_t seed      = 10;
+    uint32_t seed      = 50;
     double   changeInt = 5.0;
     uint32_t pktSize   = 1024;
     double   clientIntvMs = 15.0;  // INCREASED: Longer interval = less traffic (was 10.0)
