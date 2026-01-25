@@ -37,41 +37,77 @@ class CNNLSTM(nn.Module):
         out, _ = self.lstm(x)
         return self.fc(out[:, -1, :]).squeeze(1)
 
-def evaluate_cnn_lstm_edge(model_path, input_dim, sequence_len=10, assumed_power_W=2.0):
+# def evaluate_cnn_lstm_edge(model_path, input_dim, sequence_len=10, assumed_power_W=2.0):
+
+#     model = CNNLSTM(input_dim=input_dim)
+#     state = torch.load(model_path, map_location="cpu")
+#     model.load_state_dict(state)
+#     model.eval()
+
+#     params = sum(p.numel() for p in model.parameters())
+#     size_mb = params * 4 / (1024**2)
+#     flops = params * 2  # approx
+
+#     dummy = torch.randn(1, sequence_len, input_dim)
+
+#     warm = 20
+#     runs = 200
+
+#     for _ in range(warm):
+#         model(dummy)
+
+#     t0 = time.perf_counter()
+#     for _ in range(runs):
+#         model(dummy)
+#     t1 = time.perf_counter()
+
+#     latency_ms = ((t1 - t0) / runs) * 1000
+#     energy_j = (latency_ms / 1000) * assumed_power_W
+
+#     activation_bytes = sequence_len * input_dim * 4
+
+#     return {
+#         "Parameters": params,
+#         "Model Size (MB)": size_mb,
+#         "FLOPs": flops,
+#         "Latency (ms)": latency_ms,
+#         "Energy Estimated (J)": energy_j,
+#         "Peak Activation Memory (Bytes)": activation_bytes,
+#         "Model Path": model_path,
+#     }
+def evaluate_cnn_lstm_edge(model_path, sequence_len=10, assumed_power_W=2.0):
+
+    state = torch.load(model_path, map_location="cpu")
+    input_dim = state["cnn.0.weight"].shape[1]
 
     model = CNNLSTM(input_dim=input_dim)
-    state = torch.load(model_path, map_location="cpu")
     model.load_state_dict(state)
     model.eval()
 
-    params = sum(p.numel() for p in model.parameters())
-    size_mb = params * 4 / (1024**2)
-    flops = params * 2  # approx
-
     dummy = torch.randn(1, sequence_len, input_dim)
 
-    warm = 20
-    runs = 200
+    params = sum(p.numel() for p in model.parameters())
+    size_mb = params * 4 / (1024 ** 2)
+    flops = params * 2  # approximation
 
-    for _ in range(warm):
+    for _ in range(20):
         model(dummy)
 
     t0 = time.perf_counter()
-    for _ in range(runs):
+    for _ in range(200):
         model(dummy)
     t1 = time.perf_counter()
 
-    latency_ms = ((t1 - t0) / runs) * 1000
+    latency_ms = ((t1 - t0) / 200) * 1000
     energy_j = (latency_ms / 1000) * assumed_power_W
 
-    activation_bytes = sequence_len * input_dim * 4
-
     return {
+        "Input Dim": input_dim,
         "Parameters": params,
         "Model Size (MB)": size_mb,
         "FLOPs": flops,
         "Latency (ms)": latency_ms,
         "Energy Estimated (J)": energy_j,
-        "Peak Activation Memory (Bytes)": activation_bytes,
+        "Peak Activation Memory (Bytes)": dummy.numel() * 4,
         "Model Path": model_path,
     }

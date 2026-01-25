@@ -34,12 +34,12 @@ class LSTMModel(nn.Module):
 # 2. Load model from .pt file
 # ============================================================
 
-def load_lstm_model(model_path, input_dim):
-    model = LSTMModel(input_dim)
-    state = torch.load(model_path, map_location="cpu")
-    model.load_state_dict(state)
-    model.eval()
-    return model
+# def load_lstm_model(model_path, input_dim):
+#     model = LSTMModel(input_dim)
+#     state = torch.load(model_path, map_location="cpu")
+#     model.load_state_dict(state)
+#     model.eval()
+#     return model
 
 
 # ============================================================
@@ -140,36 +140,73 @@ def estimate_peak_activation_memory(model, example_input):
 # 8. Full evaluation function
 # ============================================================
 
-def evaluate_lstm_edge(model_path, input_dim, sequence_len=1, assumed_power_W=2.0):
+# def evaluate_lstm_edge(model_path, input_dim, sequence_len=1, assumed_power_W=2.0):
     
-    # ---------------- Load Model ----------------
-    model = load_lstm_model(model_path, input_dim)
+#     # ---------------- Load Model ----------------
+#     model = load_lstm_model(model_path, input_dim)
 
-    # Input tensor for evaluation
+#     # Input tensor for evaluation
+#     example_input = torch.randn(1, sequence_len, input_dim)
+
+#     # ---------------- Compute Metrics ----------------
+#     params = count_parameters(model)
+#     size_b = model_size_bytes(model)
+#     size_mb = size_b / (1024 * 1024)
+
+#     flops = compute_lstm_flops(model, sequence_len)
+#     latency_s = measure_latency(model, example_input)
+#     latency_ms = latency_s * 1000
+
+#     energy = estimate_energy(latency_s, assumed_power_W)
+#     peak_mem = estimate_peak_activation_memory(model, example_input)
+
+#     # ---------------- Package Output ----------------
+#     return {
+#         "Model Path": model_path,
+#         "Parameters": params,
+#         "Model Size (Bytes)": size_b,
+#         "Model Size (MB)": size_mb,
+#         "FLOPs": flops,
+#         "Latency (s)": latency_s,
+#         "Latency (ms)": latency_ms,
+#         "Energy Estimated (J)": energy,
+#         "Peak Activation Memory (Bytes)": peak_mem
+#     }
+def load_lstm_model(model_path):
+    state = torch.load(model_path, map_location="cpu")
+    input_dim = state["lstm.weight_ih_l0"].shape[1]
+
+    model = LSTMModel(input_dim)
+    model.load_state_dict(state)
+    model.eval()
+
+    return model, input_dim
+
+
+def evaluate_lstm_edge(model_path, sequence_len=1, assumed_power_W=2.0):
+
+    model, input_dim = load_lstm_model(model_path)
     example_input = torch.randn(1, sequence_len, input_dim)
 
-    # ---------------- Compute Metrics ----------------
     params = count_parameters(model)
     size_b = model_size_bytes(model)
     size_mb = size_b / (1024 * 1024)
 
     flops = compute_lstm_flops(model, sequence_len)
     latency_s = measure_latency(model, example_input)
-    latency_ms = latency_s * 1000
-
     energy = estimate_energy(latency_s, assumed_power_W)
     peak_mem = estimate_peak_activation_memory(model, example_input)
 
-    # ---------------- Package Output ----------------
     return {
-        "Model Path": model_path,
+        "Input Dim": input_dim,
         "Parameters": params,
         "Model Size (Bytes)": size_b,
         "Model Size (MB)": size_mb,
         "FLOPs": flops,
         "Latency (s)": latency_s,
-        "Latency (ms)": latency_ms,
+        "Latency (ms)": latency_s * 1000,
         "Energy Estimated (J)": energy,
-        "Peak Activation Memory (Bytes)": peak_mem
+        "Peak Activation Memory (Bytes)": peak_mem,
+        "Model Path": model_path,
     }
 

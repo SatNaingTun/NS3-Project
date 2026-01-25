@@ -121,22 +121,64 @@ def estimate_peak_activation_memory(model, example_input):
 # 7. Full MLP Edge Evaluation Pipeline
 # ============================================================
 
-def evaluate_mlp_edge(model_path, input_dim, assumed_power_W=2.0):
+# def evaluate_mlp_edge(model_path, input_dim, assumed_power_W=2.0):
+#     """
+#     Main evaluation function.
+#     """
+
+#     # ------------------------------
+#     # Load model
+#     # ------------------------------
+#     model = load_mlp_model(model_path, input_dim)
+
+#     # Dummy input for evaluation
+#     example_input = torch.randn(1, input_dim)
+
+#     # ------------------------------
+#     # Compute metrics
+#     # ------------------------------
+#     params = count_parameters(model)
+#     size_b = model_size_bytes(model)
+#     size_mb = size_b / (1024 * 1024)
+
+#     flops = compute_mlp_flops(model, input_dim)
+#     latency = measure_latency(model, example_input)
+#     energy = estimate_energy(latency, assumed_power_W)
+#     peak_mem = estimate_peak_activation_memory(model, example_input)
+
+#     return {
+#         "Model Path": model_path,
+#         "Parameters": params,
+#         "Model Size (Bytes)": size_b,
+#         "Model Size (MB)": size_mb,
+#         "FLOPs": flops,
+#         "Latency (s)": latency,
+#         "Latency (ms)": latency * 1000,
+#         "Energy Estimated (J)": energy,
+#         "Peak Activation Memory (Bytes)": peak_mem
+#     }
+
+
+def evaluate_mlp_edge(model_path, assumed_power_W=2.0):
     """
-    Main evaluation function.
+    Edge evaluation for MLP.
+    input_dim is inferred from checkpoint.
     """
 
-    # ------------------------------
-    # Load model
-    # ------------------------------
-    model = load_mlp_model(model_path, input_dim)
+    # ---- Load checkpoint ----
+    state = torch.load(model_path, map_location="cpu")
 
-    # Dummy input for evaluation
+    # ---- Infer input_dim ----
+    input_dim = state["net.0.weight"].shape[1]
+
+    # ---- Build model ----
+    model = MLP(input_dim)
+    model.load_state_dict(state)
+    model.eval()
+
     example_input = torch.randn(1, input_dim)
 
-    # ------------------------------
-    # Compute metrics
-    # ------------------------------
+    # ---- Metrics ----
     params = count_parameters(model)
     size_b = model_size_bytes(model)
     size_mb = size_b / (1024 * 1024)
@@ -147,7 +189,7 @@ def evaluate_mlp_edge(model_path, input_dim, assumed_power_W=2.0):
     peak_mem = estimate_peak_activation_memory(model, example_input)
 
     return {
-        "Model Path": model_path,
+        "Input Dim": input_dim,
         "Parameters": params,
         "Model Size (Bytes)": size_b,
         "Model Size (MB)": size_mb,
@@ -155,5 +197,7 @@ def evaluate_mlp_edge(model_path, input_dim, assumed_power_W=2.0):
         "Latency (s)": latency,
         "Latency (ms)": latency * 1000,
         "Energy Estimated (J)": energy,
-        "Peak Activation Memory (Bytes)": peak_mem
+        "Peak Activation Memory (Bytes)": peak_mem,
+        "Model Path": model_path,
     }
+

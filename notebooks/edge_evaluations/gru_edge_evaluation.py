@@ -36,12 +36,12 @@ class GRUModel(nn.Module):
 # 2. Load GRU model weights
 # ============================================================
 
-def load_gru_model(model_path, input_dim):
-    model = GRUModel(input_dim)
-    state = torch.load(model_path, map_location="cpu")
-    model.load_state_dict(state)
-    model.eval()
-    return model
+# def load_gru_model(model_path, input_dim):
+#     model = GRUModel(input_dim)
+#     state = torch.load(model_path, map_location="cpu")
+#     model.load_state_dict(state)
+#     model.eval()
+#     return model
 
 
 # ============================================================
@@ -143,34 +143,72 @@ def estimate_peak_activation_memory(model, example_input):
 # 8. Full GRU edge evaluation
 # ============================================================
 
-def evaluate_gru_edge(model_path, input_dim, sequence_len=1, assumed_power_W=2.0):
+# def evaluate_gru_edge(model_path, input_dim, sequence_len=1, assumed_power_W=2.0):
 
-    # Load model
-    model = load_gru_model(model_path, input_dim)
+#     # Load model
+#     model = load_gru_model(model_path, input_dim)
 
-    # Dummy input (1 batch, T timesteps, input_dim features)
+#     # Dummy input (1 batch, T timesteps, input_dim features)
+#     example_input = torch.randn(1, sequence_len, input_dim)
+
+#     # Compute metrics
+#     params = count_parameters(model)
+#     size_b = model_size_bytes(model)
+#     size_mb = size_b / (1024 * 1024)
+
+#     flops = compute_gru_flops(model, sequence_len)
+#     latency_s = measure_latency(model, example_input)
+#     latency_ms = latency_s * 1000
+
+#     energy = estimate_energy(latency_s, assumed_power_W)
+#     peak_mem = estimate_peak_activation_memory(model, example_input)
+
+#     return {
+#         "Model Path": model_path,
+#         "Parameters": params,
+#         "Model Size (Bytes)": size_b,
+#         "Model Size (MB)": size_mb,
+#         "FLOPs": flops,
+#         "Latency (s)": latency_s,
+#         "Latency (ms)": latency_ms,
+#         "Energy Estimated (J)": energy,
+#         "Peak Activation Memory (Bytes)": peak_mem
+#     }
+def load_gru_model(model_path):
+    state = torch.load(model_path, map_location="cpu")
+    input_dim = state["gru.weight_ih_l0"].shape[1]
+
+    model = GRUModel(input_dim)
+    model.load_state_dict(state)
+    model.eval()
+
+    return model, input_dim
+
+
+def evaluate_gru_edge(model_path, sequence_len=1, assumed_power_W=2.0):
+
+    model, input_dim = load_gru_model(model_path)
     example_input = torch.randn(1, sequence_len, input_dim)
 
-    # Compute metrics
     params = count_parameters(model)
     size_b = model_size_bytes(model)
     size_mb = size_b / (1024 * 1024)
 
     flops = compute_gru_flops(model, sequence_len)
     latency_s = measure_latency(model, example_input)
-    latency_ms = latency_s * 1000
-
     energy = estimate_energy(latency_s, assumed_power_W)
     peak_mem = estimate_peak_activation_memory(model, example_input)
 
     return {
-        "Model Path": model_path,
+        "Input Dim": input_dim,
         "Parameters": params,
         "Model Size (Bytes)": size_b,
         "Model Size (MB)": size_mb,
         "FLOPs": flops,
         "Latency (s)": latency_s,
-        "Latency (ms)": latency_ms,
+        "Latency (ms)": latency_s * 1000,
         "Energy Estimated (J)": energy,
-        "Peak Activation Memory (Bytes)": peak_mem
+        "Peak Activation Memory (Bytes)": peak_mem,
+        "Model Path": model_path,
     }
+
