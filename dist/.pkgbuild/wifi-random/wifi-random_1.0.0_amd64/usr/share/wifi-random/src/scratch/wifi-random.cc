@@ -13,6 +13,7 @@
 #include "ns3/applications-module.h"
 #include "ns3/flow-monitor-module.h"
 #include "ns3/netanim-module.h"
+#include "ns3/system-path.h"
 #include "ns3/wifi-ppdu.h"
 
 #include <fstream>
@@ -351,16 +352,34 @@ main(int argc, char *argv[])
     uint32_t pktSize   = 1024;
     double   clientIntvMs = 15.0;  // INCREASED: Longer interval = less traffic (was 10.0)
     bool     indoor    = true;
+    std::string outputDir = "outputs/csv/wifi-random";
 
-    CommandLine cmd;
-    cmd.AddValue("nStaMin", "", nMin);
-    cmd.AddValue("nStaMax", "", nMax);
-    cmd.AddValue("simTime", "", simTime);
-    cmd.AddValue("txPower", "", txPower);
-    cmd.AddValue("seed",    "", seed);
-    cmd.AddValue("densityChangeInterval", "", changeInt);
-    cmd.AddValue("packetInterval", "", clientIntvMs);
-    cmd.AddValue("area", "", area);
+    CommandLine cmd(__FILE__);
+    cmd.Usage("Wi-Fi random density simulation.\n"
+              "Use --help (or -h, ?, /?) to show available parameters.\n"
+              "Example:\n"
+              "  --nStaMin=5 --nStaMax=20 --simTime=30 --seed=50 "
+              "--outputDir=outputs/csv/wifi-random");
+    cmd.AddValue("nStaMin", "Minimum number of active stations", nMin);
+    cmd.AddValue("nStaMax", "Maximum number of active stations", nMax);
+    cmd.AddValue("simTime", "Simulation time in seconds", simTime);
+    cmd.AddValue("txPower", "Wi-Fi Tx power in dBm", txPower);
+    cmd.AddValue("seed",    "RNG seed", seed);
+    cmd.AddValue("densityChangeInterval", "Node-density update interval in seconds", changeInt);
+    cmd.AddValue("packetInterval", "UDP client packet interval in milliseconds", clientIntvMs);
+    cmd.AddValue("area", "Mobility area half-width in meters", area);
+    cmd.AddValue("outputDir", "Directory for CSV outputs (auto-created if missing)", outputDir);
+
+    for (int i = 1; i < argc; ++i)
+    {
+        std::string arg = argv[i];
+        if (arg == "-h" || arg == "?" || arg == "/?")
+        {
+            std::cout << cmd;
+            return 0;
+        }
+    }
+
     cmd.Parse(argc, argv);
 
     // Build run tag
@@ -374,8 +393,9 @@ main(int argc, char *argv[])
        << "-" << std::setw(2) << lt->tm_min;
 
     std::string runTag = ts.str();
+    SystemPath::MakeDirectories(outputDir);
     std::string prefix =
-        "outputs/csv/wifi-random/wifi-random-" + runTag +
+        outputDir + "/wifi-random-" + runTag +
         "-seed" + std::to_string(seed);
 
     // RNG seed & initial active nodes

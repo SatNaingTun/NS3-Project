@@ -35,7 +35,13 @@ To remove generated package artifacts for the active script:
 ./scripts/clean_ns3_source_deb.sh scratch/your-script.cc
 ```
 
-It creates a deb package under `dist/<script-name>/` with:
+To remove all generated package build folders and package outputs:
+
+```shell
+./scripts/clean_all_ns3_source_deb.sh
+```
+
+It creates a deb package under `dist/deb/` with:
 
 - the active `.cc` file
 - local source/header files included by that script
@@ -46,7 +52,7 @@ To let Debian/Ubuntu automatically download the required libraries from the
 configured apt repositories, install the generated package with:
 
 ```shell
-sudo apt install ./dist/<script-name>/<script-name>_1.0.0_amd64.deb
+sudo apt install ./dist/deb/<script-name>_1.0.0_amd64.deb
 ```
 
 Use `apt install`, not `dpkg -i`, if you want dependencies to be fetched automatically.
@@ -55,6 +61,7 @@ VS Code exposes both actions in the Run and Task menus:
 
 - `Package active ns-3 script to deb`
 - `Clean active ns-3 deb pkgbuild`
+- `Clean all ns-3 deb pkgbuilds`
 
 ---
 

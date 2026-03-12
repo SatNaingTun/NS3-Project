@@ -1,11 +1,11 @@
-p3 ships the selected ns-3 script source and its local helper files.
+wifi-random ships the selected ns-3 script source and its local helper files.
 
 Run it with:
-  p3
+  wifi-random
 
 The first run compiles the installed sources against the system ns-3
 development package and caches the executable under:
-  $XDG_CACHE_HOME/p3/build/
+  $XDG_CACHE_HOME/wifi-random/build/
 
 Install this package with apt so dependencies are pulled automatically:
-  sudo apt install ./p3_1.0.0_amd64.deb
+  sudo apt install ./wifi-random_1.0.0_amd64.deb

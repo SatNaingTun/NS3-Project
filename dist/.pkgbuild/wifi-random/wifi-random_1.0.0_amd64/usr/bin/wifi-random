@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="p3"
-SRC_ROOT="/usr/share/p3/src"
-MAIN_SOURCE="$SRC_ROOT/scratch/p3.cc"
+APP_NAME="wifi-random"
+SRC_ROOT="/usr/share/wifi-random/src"
+MAIN_SOURCE="$SRC_ROOT/scratch/wifi-random.cc"
 CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/$APP_NAME"
 BUILD_DIR="$CACHE_ROOT/build"
 BIN_PATH="$BUILD_DIR/$APP_NAME"
@@ -30,6 +30,7 @@ else
 fi
 
 if (( rebuild )); then
+    echo "[$APP_NAME] Building cached executable at $BIN_PATH"
     mapfile -t NS3_MODULES < <(pkg-config --list-all | awk '/^ns3/ {print $1}' | sort -u)
     if [[ ${#NS3_MODULES[@]} -eq 0 ]]; then
         echo "No ns-3 pkg-config modules found. Install libns3-dev and pkg-config." >&2
@@ -39,6 +40,10 @@ if (( rebuild )); then
     g++ -std=c++17 -O2 -I"$SRC_ROOT" "${SOURCES[@]}" \
         $(pkg-config --cflags --libs "${NS3_MODULES[@]}") \
         -o "$BIN_PATH"
+fi
+
+if [[ -x "$BIN_PATH" ]]; then
+    echo "[$APP_NAME] Using cached executable: $BIN_PATH"
 fi
 
 exec "$BIN_PATH" "$@"

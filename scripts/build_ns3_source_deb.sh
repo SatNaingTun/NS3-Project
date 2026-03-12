@@ -15,12 +15,19 @@ launcher with the same name as the script and declares apt-installable build
 dependencies such as libns3-dev.
 
 Install the resulting package with:
-  sudo apt install ./dist/<script-name>/<script-name>_1.0.0_amd64.deb
+  sudo apt install ./dist/deb/<script-name>_1.0.0_amd64.deb
 EOF
 }
 
 log() {
     printf '[build-ns3-deb] %s\n' "$*"
+}
+
+clear_dir_contents() {
+    local dir_path="$1"
+    if [[ -d "$dir_path" ]]; then
+        find "$dir_path" -mindepth 1 -delete
+    fi
 }
 
 die() {
@@ -34,6 +41,32 @@ require_cmd() {
 
 sanitize_package_name() {
     printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9.+-]+/-/g; s/^-+//; s/-+$//'
+}
+
+normalize_input_path() {
+    local input_path="$1"
+
+    if [[ -f "$input_path" ]]; then
+        realpath "$input_path"
+        return 0
+    fi
+
+    local prefix="/usr/share/"
+    local marker="/src/"
+    if [[ "$input_path" == *"$prefix"*"$marker"* ]]; then
+        local after_prefix rel_path candidate
+        after_prefix="${input_path#*"$prefix"}"
+        rel_path="${after_prefix#*"$marker"}"
+        candidate="$ROOT_DIR/$rel_path"
+
+        if [[ -f "$candidate" ]]; then
+            printf '[build-ns3-deb] %s\n' "Input path was inside a generated package tree; using workspace source $rel_path" >&2
+            realpath "$candidate"
+            return 0
+        fi
+    fi
+
+    return 1
 }
 
 relative_to_root() {
@@ -118,6 +151,7 @@ main() {
     require_cmd dpkg-deb
     require_cmd realpath
     require_cmd python3
+    require_cmd cp
 
     if (($# < 1)); then
         usage
@@ -127,10 +161,9 @@ main() {
     local input_file="$1"
     shift || true
 
-    [[ -f "$input_file" ]] || die "Input file not found: $input_file"
-
     local input_abs input_rel base_name package_name version arch
-    input_abs="$(realpath "$input_file")"
+    input_abs="$(normalize_input_path "$input_file")" || die "Input file not found: $input_file"
+
     input_rel="$(relative_to_root "$input_abs")" || die "Input file must be inside the workspace"
     base_name="$(basename "${input_abs%.*}")"
     package_name="$(sanitize_package_name "$base_name")"
@@ -139,14 +172,20 @@ main() {
     version="1.0.0"
     arch="$(dpkg --print-architecture)"
 
-    local out_dir build_root pkg_root package_dir installed_src_root control_file
-    out_dir="$ROOT_DIR/dist/$package_name"
+    local out_dir legacy_out_dir build_root pkg_root package_dir installed_src_root control_file
+    local dpkg_build_root dpkg_pkg_root
+    out_dir="$ROOT_DIR/dist/deb"
+    legacy_out_dir="$ROOT_DIR/dist/$package_name"
     build_root="$ROOT_DIR/dist/.pkgbuild/$package_name"
     pkg_root="$build_root/${package_name}_${version}_${arch}"
     package_dir="$pkg_root/DEBIAN"
     installed_src_root="$pkg_root/usr/share/$package_name/src"
+    dpkg_build_root="/tmp/ns3-source-deb/$package_name"
+    dpkg_pkg_root="$dpkg_build_root/${package_name}_${version}_${arch}"
 
-    rm -rf "$build_root" "$out_dir"
+    rm -rf "$ROOT_DIR/dist/.pkgbuild" "$build_root" "$dpkg_build_root"
+    mkdir -p "$out_dir"
+    clear_dir_contents "$legacy_out_dir"
     mkdir -p "$package_dir" "$installed_src_root" "$pkg_root/usr/bin" "$pkg_root/usr/share/doc/$package_name"
 
     log "Collecting local source dependencies for $input_rel"
@@ -248,10 +287,14 @@ EOF
 
     chmod 0755 "$package_dir"
 
-    mkdir -p "$out_dir"
+    mkdir -p "$dpkg_build_root"
+    cp -r "$pkg_root" "$dpkg_build_root/"
+    chmod 0755 "$dpkg_pkg_root/DEBIAN" "$dpkg_pkg_root/usr/bin/$package_name"
+
     local deb_path="$out_dir/${package_name}_${version}_${arch}.deb"
+    rm -f "$deb_path"
     log "Building Debian package $deb_path"
-    dpkg-deb --build "$pkg_root" "$deb_path" >/dev/null
+    dpkg-deb --build "$dpkg_pkg_root" "$deb_path" >/dev/null
 
     log "Done"
     printf 'Package: %s\n' "$deb_path"
