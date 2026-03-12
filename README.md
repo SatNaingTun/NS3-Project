@@ -29,6 +29,12 @@ This project also includes a packaging task for the active ns-3 script:
 ./scripts/build_ns3_source_deb.sh scratch/your-script.cc
 ```
 
+To remove generated package artifacts for the active script:
+
+```shell
+./scripts/clean_ns3_source_deb.sh scratch/your-script.cc
+```
+
 It creates a deb package under `dist/<script-name>/` with:
 
 - the active `.cc` file
@@ -44,6 +50,11 @@ sudo apt install ./dist/<script-name>/<script-name>_1.0.0_amd64.deb
 ```
 
 Use `apt install`, not `dpkg -i`, if you want dependencies to be fetched automatically.
+
+VS Code exposes both actions in the Run and Task menus:
+
+- `Package active ns-3 script to deb`
+- `Clean active ns-3 deb pkgbuild`
 
 ---
 

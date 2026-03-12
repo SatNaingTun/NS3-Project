@@ -61,6 +61,19 @@
         "focus": false,
         "panel": "shared"
       }
+    },
+    {
+      "label": "Clean active ns-3 deb pkgbuild",
+      "type": "shell",
+      "command": "./scripts/clean_ns3_source_deb.sh ${relativeFile}",
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
     }
   ]
 }

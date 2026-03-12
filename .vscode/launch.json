@@ -153,6 +153,20 @@
       "MIMode": "gdb",
       "miDebuggerPath": "/usr/bin/gdb",
       "externalConsole": false
+    },
+        {
+      "name": "Clean active ns-3 deb pkgbuild",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/usr/bin/true",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Clean active ns-3 deb pkgbuild",
+      "noDebug": true,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "externalConsole": false
     }
 
 
