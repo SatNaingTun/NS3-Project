@@ -1,0 +1,11 @@
+scratch-subdir ships the selected ns-3 script source and its local helper files.
+
+Run it with:
+  scratch-subdir
+
+The first run compiles the installed sources against the system ns-3
+development package and caches the executable under:
+  $XDG_CACHE_HOME/scratch-subdir/build/
+
+Install this package with apt so dependencies are pulled automatically:
+  sudo apt install ./scratch-subdir_1.0.0_amd64.deb

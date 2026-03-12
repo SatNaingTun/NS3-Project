@@ -1,0 +1,11 @@
+wifi-perf-random-persta2 ships the selected ns-3 script source and its local helper files.
+
+Run it with:
+  wifi-perf-random-persta2
+
+The first run compiles the installed sources against the system ns-3
+development package and caches the executable under:
+  $XDG_CACHE_HOME/wifi-perf-random-persta2/build/
+
+Install this package with apt so dependencies are pulled automatically:
+  sudo apt install ./wifi-perf-random-persta2_1.0.0_amd64.deb

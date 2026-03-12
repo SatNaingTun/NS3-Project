@@ -48,6 +48,19 @@
         "focus": false,
         "panel": "shared"
       }
+    },
+    {
+      "label": "Package active ns-3 script to deb",
+      "type": "shell",
+      "command": "./scripts/build_ns3_source_deb.sh ${relativeFile}",
+      "group": "build",
+      "problemMatcher": [],
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "shared"
+      }
     }
   ]
 }

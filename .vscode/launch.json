@@ -139,6 +139,20 @@
           "ignoreFailures": true
         }
       ]
+    },
+        {
+      "name": "Package active ns-3 script to deb",
+      "type": "cppdbg",
+      "request": "launch",
+      "program": "/usr/bin/true",
+      "args": [],
+      "stopAtEntry": false,
+      "cwd": "${workspaceFolder}",
+      "preLaunchTask": "Package active ns-3 script to deb",
+      "noDebug": true,
+      "MIMode": "gdb",
+      "miDebuggerPath": "/usr/bin/gdb",
+      "externalConsole": false
     }
 
 

@@ -1,0 +1,12 @@
+Package: scratch-subdir
+Version: 1.0.0
+Section: science
+Priority: optional
+Architecture: amd64
+Maintainer: NS3-Project Packager <noreply@example.com>
+Depends: bash, libns3-dev, pkg-config
+Description: Packaged ns-3 source launcher for scratch-subdir
+ This package contains the ns-3 source file scratch/subdir/scratch-subdir.cc and any local project
+ files it includes. The installed launcher compiles only those files, not the
+ entire upstream ns-3 tree, and relies on apt-installable ns-3 development
+ libraries from the distribution.

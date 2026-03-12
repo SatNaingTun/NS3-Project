@@ -21,6 +21,30 @@ This project includes a `.vscode/` folder with configuration files that make it 
 - `tasks.json` — defines build tasks for compiling `.cc` files using NS-3  
 - `.gitignore` — excludes build artifacts and temporary files from version control
 
+### 📦 Package The Active Script As A `.deb`
+
+This project also includes a packaging task for the active ns-3 script:
+
+```shell
+./scripts/build_ns3_source_deb.sh scratch/your-script.cc
+```
+
+It creates a deb package under `dist/<script-name>/` with:
+
+- the active `.cc` file
+- local source/header files included by that script
+- a launcher named the same as the script
+- Debian package dependencies such as `libns3-dev` and `pkg-config`
+
+To let Debian/Ubuntu automatically download the required libraries from the
+configured apt repositories, install the generated package with:
+
+```shell
+sudo apt install ./dist/<script-name>/<script-name>_1.0.0_amd64.deb
+```
+
+Use `apt install`, not `dpkg -i`, if you want dependencies to be fetched automatically.
+
 ---
 
 ### 🛠️ Prerequisites

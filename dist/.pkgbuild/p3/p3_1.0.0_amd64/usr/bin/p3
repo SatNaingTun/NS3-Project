@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+APP_NAME="p3"
+SRC_ROOT="/usr/share/p3/src"
+MAIN_SOURCE="$SRC_ROOT/scratch/p3.cc"
+CACHE_ROOT="${XDG_CACHE_HOME:-$HOME/.cache}/$APP_NAME"
+BUILD_DIR="$CACHE_ROOT/build"
+BIN_PATH="$BUILD_DIR/$APP_NAME"
+
+mkdir -p "$BUILD_DIR"
+
+mapfile -t SOURCES < <(find "$SRC_ROOT" -type f \( -name '*.cc' -o -name '*.cpp' -o -name '*.cxx' -o -name '*.c' \) | sort)
+
+if [[ ${#SOURCES[@]} -eq 0 ]]; then
+    echo "No source files installed for $APP_NAME" >&2
+    exit 1
+fi
+
+rebuild=0
+if [[ ! -x "$BIN_PATH" ]]; then
+    rebuild=1
+else
+    while IFS= read -r source_file; do
+        if [[ "$source_file" -nt "$BIN_PATH" ]]; then
+            rebuild=1
+            break
+        fi
+    done < <(printf '%s\n' "${SOURCES[@]}")
+fi
+
+if (( rebuild )); then
+    mapfile -t NS3_MODULES < <(pkg-config --list-all | awk '/^ns3/ {print $1}' | sort -u)
+    if [[ ${#NS3_MODULES[@]} -eq 0 ]]; then
+        echo "No ns-3 pkg-config modules found. Install libns3-dev and pkg-config." >&2
+        exit 1
+    fi
+
+    g++ -std=c++17 -O2 -I"$SRC_ROOT" "${SOURCES[@]}" \
+        $(pkg-config --cflags --libs "${NS3_MODULES[@]}") \
+        -o "$BIN_PATH"
+fi
+
+exec "$BIN_PATH" "$@"
