@@ -63,6 +63,11 @@ VS Code exposes both actions in the Run and Task menus:
 - `Clean active ns-3 deb pkgbuild`
 - `Clean all ns-3 deb pkgbuilds`
 
+### WIFI Random `.deb` Guide
+
+For the WiFi random simulation packaging workflow, see:
+[`WIFI_RANDOM_DEB_GUIDE.md`](./WIFI_RANDOM_DEB_GUIDE.md)
+
 ---
 
 ### 🛠️ Prerequisites
