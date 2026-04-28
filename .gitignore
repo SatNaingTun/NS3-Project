@@ -51,3 +51,7 @@ vcpkg/
 
 # Ignore local cache used by e.g. clangd
 .cache/
+presentation/presentation.md
+presentation/presentation
+presentation/presentation.pdf
+presentation/presentation.pptx
