@@ -149,8 +149,7 @@ notebooks/training_Transformer_model.ipynb
 notebooks/training_GNN_model.ipynb
 ```
 
-Note: `notebooks/generate_training_dataset.py` only creates datasets. The older
-`notebooks/generate_dataset.py` also contains Linear Regression training code.
+Note: `notebooks/generate_training_dataset.py` only creates datasets. 
 
 ### 4. Evaluate And Compare Models
 
