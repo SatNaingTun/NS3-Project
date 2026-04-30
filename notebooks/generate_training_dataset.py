@@ -2,7 +2,15 @@
 import os
 import re
 import glob
+import argparse
 import pandas as pd
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
+def project_path(*parts):
+    return PROJECT_ROOT.joinpath(*parts)
 
 # ============================================================
 # Helpers
@@ -96,8 +104,12 @@ def build_training_dataset(root_dir, out_csv="final_training_dataset.csv"):
         *-nodedensity.csv
     """
 
-    perf_files = sorted(glob.glob(os.path.join(root_dir, "*-perf.csv")))
-    nd_files   = sorted(glob.glob(os.path.join(root_dir, "*-nodedensity.csv")))
+    root_dir = Path(root_dir).expanduser()
+    out_csv = Path(out_csv).expanduser()
+    out_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    perf_files = sorted(glob.glob(str(root_dir / "*-perf.csv")))
+    nd_files   = sorted(glob.glob(str(root_dir / "*-nodedensity.csv")))
 
     print(f"Found {len(perf_files)} perf files")
     print(f"Found {len(nd_files)} nodedensity files")
@@ -129,7 +141,7 @@ def build_training_dataset(root_dir, out_csv="final_training_dataset.csv"):
 
     if not all_rows:
         print("❌ No merged data produced.")
-        return
+        return None
 
     final_df = pd.concat(all_rows, ignore_index=True)
 
@@ -145,8 +157,8 @@ def build_training_dataset(root_dir, out_csv="final_training_dataset.csv"):
 
 
 
-Original_Data_Path = "../outputs/combine_analysis/final_training_dataset.csv"
-Split_Data_Path = "../outputs/datasets/"
+Original_Data_Path = project_path("outputs", "combine_analysis", "final_training_dataset.csv")
+Split_Data_Path = project_path("outputs", "datasets")
 
 
 
@@ -157,6 +169,16 @@ def split_by_simulation( train_ratio=0.7, val_ratio=0.15, test_ratio=0.15,Origin
     Each run = unique (RandSeed, RunDateTime).
     Guarantees ≥1 simulation in train, validation, and test.
     """
+    Original_Data_Path = Path(Original_Data_Path).expanduser()
+    Split_Data_Path = Path(Split_Data_Path).expanduser()
+
+    if not Original_Data_Path.exists():
+        raise FileNotFoundError(
+            f"Training dataset not found: {Original_Data_Path}\n"
+            "Run build_training_dataset() with a folder containing "
+            "*-perf.csv and *-nodedensity.csv files first."
+        )
+
     df = pd.read_csv(Original_Data_Path)
     os.makedirs(Split_Data_Path, exist_ok=True)
 
@@ -216,161 +238,6 @@ def split_by_simulation( train_ratio=0.7, val_ratio=0.15, test_ratio=0.15,Origin
 #     df = pd.read_csv(Original_Data_Path)
 #     split_by_simulation(df)
 
-import os
-import numpy as np
-import pandas as pd
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score
-import joblib
-
-MODEL_DIR = "../outputs/models/"
-PRED_DIR  = "../outputs/models/predictions/"
-Split_Data_Path  = "../outputs/datasets/"
-
-os.makedirs(MODEL_DIR, exist_ok=True)
-os.makedirs(PRED_DIR, exist_ok=True)
-
-TARGETS = {
-    "Throughput": "Perf_Avg_Throughput",
-    "Latency":    "Perf_Avg_Latency",
-    "Loss":       "Perf_Avg_Loss"
-}
-
-EXCLUDE_COLS = [
-    "StartDateTime", "EndDateTime",
-    "Perf_Filename", "ND_Filename",
-    "RunDateTime"
-]
-
-
-def load_split_data(Split_Data_Path=Split_Data_Path):
-    df_train = pd.read_csv(os.path.join(Split_Data_Path, "train.csv"))
-    df_valid = pd.read_csv(os.path.join(Split_Data_Path, "valid.csv"))
-    df_test  = pd.read_csv(os.path.join(Split_Data_Path, "test.csv"))
-    return df_train, df_valid, df_test
-
-
-def extract_xy(df):
-    df = df.drop(columns=[c for c in EXCLUDE_COLS if c in df.columns], errors="ignore")
-    df_num = df.select_dtypes(include=[np.number])
-
-    # Features = all numeric except targets
-    feature_cols = [c for c in df_num.columns if c not in TARGETS.values()]
-    X = df_num[feature_cols].fillna(0)
-
-    # Targets
-    y = {name: df_num[col].fillna(0) for name, col in TARGETS.items()}
-
-    return X, y, feature_cols
-
-
-def scale_data(X_train, X_valid, X_test):
-    scaler = StandardScaler()
-    X_train_s = scaler.fit_transform(X_train)
-    X_valid_s = scaler.transform(X_valid)
-    X_test_s  = scaler.transform(X_test)
-
-    joblib.dump(scaler, os.path.join(MODEL_DIR, "lr_scaler.pkl"))
-    print("Scaler saved → outputs/models/lr_scaler.pkl")
-
-    return X_train_s, X_valid_s, X_test_s
-
-def train_single_lr_model(X_train, X_valid, X_test,
-                          y_train, y_valid, y_test,
-                          model_name):
-
-    print("\n=================================================")
-    print(f" TRAINING LR MODEL FOR: {model_name}")
-    print("=================================================")
-
-    model = LinearRegression()
-    model.fit(X_train, y_train)
-
-    # Save model
-    model_path = os.path.join(MODEL_DIR, f"lr_model_{model_name.lower()}.pkl")
-    joblib.dump(model, model_path)
-    print(f"Model saved → {model_path}")
-
-    # Predictions
-    y_valid_pred = model.predict(X_valid)
-    y_test_pred  = model.predict(X_test)
-
-    # Validation metrics
-    val_rmse = np.sqrt(mean_squared_error(y_valid, y_valid_pred))
-    val_mae  = mean_absolute_error(y_valid, y_valid_pred)
-    val_r2   = r2_score(y_valid, y_valid_pred)
-
-    # Test metrics
-    test_rmse = np.sqrt(mean_squared_error(y_test, y_test_pred))
-    test_mae  = mean_absolute_error(y_test, y_test_pred)
-    test_r2   = r2_score(y_test, y_test_pred)
-
-    print("Validation Results:")
-    print(f"  RMSE: {val_rmse:.4f},  MAE: {val_mae:.4f},  R²: {val_r2:.4f}")
-
-    print("Test Results:")
-    print(f"  RMSE: {test_rmse:.4f}, MAE: {test_mae:.4f}, R²: {test_r2:.4f}")
-
-    # --------------------------
-    # Save VALIDATION predictions
-    # --------------------------
-    valid_path = os.path.join(PRED_DIR, f"lr_{model_name}_valid_predictions.csv")
-    pd.DataFrame({
-        "y_true": y_valid,
-        "y_pred": y_valid_pred
-    }).to_csv(valid_path, index=False)
-    print(f"Validation predictions saved → {valid_path}")
-
-    # --------------------------
-    # Save TEST predictions
-    # --------------------------
-    test_path = os.path.join(PRED_DIR, f"lr_{model_name}_test_predictions.csv")
-    pd.DataFrame({
-        "y_true": y_test,
-        "y_pred": y_test_pred
-    }).to_csv(test_path, index=False)
-    print(f"Test predictions saved → {test_path}")
-
-    return {
-        "Model": model_name,
-        "Val_RMSE": val_rmse,
-        "Val_MAE": val_mae,
-        "Val_R2": val_r2,
-        "Test_RMSE": test_rmse,
-        "Test_MAE": test_mae,
-        "Test_R2": test_r2
-    }
-
-
-
-def generate_predictions(Split_Data_Path=Split_Data_Path):
-    # Load datasets
-    df_train, df_valid, df_test = load_split_data(Split_Data_Path)
-
-    # Extract features and targets
-    X_train, y_train_dict, feature_cols = extract_xy(df_train)
-    X_valid, y_valid_dict, _ = extract_xy(df_valid)
-    X_test,  y_test_dict, _  = extract_xy(df_test)
-
-    # Scale
-    X_train_s, X_valid_s, X_test_s = scale_data(X_train, X_valid, X_test)
-
-    # Train LR models
-    results = []
-    for model_name in TARGETS.keys():
-        r = train_single_lr_model(
-            X_train_s, X_valid_s, X_test_s,
-            y_train_dict[model_name],
-            y_valid_dict[model_name],
-            y_test_dict[model_name],
-            model_name
-        )
-        results.append(r)
-
-    print("\n\n==================== FINAL SUMMARY ====================")
-    for r in results:
-        print(r)
 
 
 # ============================================================
@@ -378,10 +245,50 @@ def generate_predictions(Split_Data_Path=Split_Data_Path):
 # ============================================================
 
 if __name__ == "__main__":
-    build_training_dataset(
-        root_dir="../outputs/csv/wifi-random",
-        # out_csv="../outputs/combine_analysis/final_training_dataset.csv"
-        out_csv=Original_Data_Path
+    parser = argparse.ArgumentParser(
+        description="Build dataset from NS-3 wifi-random perf/nodedensity CSV files."
     )
+    parser.add_argument(
+        "--source-dir",
+        default=str(project_path("outputs", "csv", "wifi-random")),
+        help=(
+            "Folder containing *-perf.csv and *-nodedensity.csv files. "
+            "Quote the path if it contains spaces."
+        ),
+    )
+    parser.add_argument(
+        "--out-csv",
+        default=str(Original_Data_Path),
+        help="Merged dataset CSV output path.",
+    )
+    parser.add_argument(
+        "--split-dir",
+        default=str(Split_Data_Path),
+        help="Folder for train.csv, valid.csv, and test.csv.",
+    )
+    # parser.add_argument(
+    #     "--pred-dir",
+    #     default=str(PRED_DIR),
+    #     help="Folder for LR prediction CSVs.",
+    # )
+    args = parser.parse_args()
+
+    Original_Data_Path = Path(args.out_csv).expanduser()
+    Split_Data_Path = Path(args.split_dir).expanduser()
+    # PRED_DIR = Path(args.pred_dir).expanduser()
+    # os.makedirs(PRED_DIR, exist_ok=True)
+
+    final_df = build_training_dataset(
+        root_dir=Path(args.source_dir).expanduser(),
+        out_csv=Original_Data_Path,
+    )
+
+    if final_df is None:
+        raise SystemExit(
+            "Cannot continue: no merged dataset was generated. "
+            "Check --source-dir contains matching *-perf.csv and "
+            "*-nodedensity.csv files."
+        )
+
     split_by_simulation(Original_Data_Path=Original_Data_Path, Split_Data_Path=Split_Data_Path)
-    generate_predictions(Split_Data_Path=Split_Data_Path)
+    
