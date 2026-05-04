@@ -1,0 +1,122 @@
+Compute model size (bytes) from number of parameters.
+
+Estimate FLOPs per inference from layer formulas (conv / dense).
+
+Measure inference latency on a representative CPU/SoC (or simulate).
+
+Convert latency & power → energy per inference (preferred if you can measure power).
+
+If you cannot measure power, estimate energy using energy-per-FLOP constants (or report ranges).
+
+Estimate peak memory = weights + peak activations (use layer shapes).
+
+Compare models by: accuracy vs model size / FLOPs / latency / estimated energy.
+
+Formulas & definitions
+
+Model size (bytes) = N_params × bytes_per_param
+
+For float32: bytes_per_param = 4. For quantized 8-bit: bytes_per_param = 1.
+
+Parameters (M) = N_params / 1_000_000 (useful shorthand)
+
+FLOPs per layer (multiply-add conventions)
+
+Dense (fully connected): FLOPs = 2 × N_in × N_out
+
+Convolution (standard): FLOPs = 2 × Cout × Hout × Wout × (Cin × Kx × Ky)
+
+(Here the factor 2 counts one multiply + one add per MAC. If you prefer MACs, use MACs = FLOPs / 2.)
+
+Inference latency (s) — measured time to run one forward pass (average of many runs).
+
+Measured energy per inference (J) = P_avg (W) × latency (s)
+
+P_avg is the average power draw during inference (subtract idle baseline).
+
+Estimated energy using FLOPs: E_est = FLOPs × E_per_FLOP
+
+E_per_FLOP must come from device specs, literature, or calibration. Use measured if possible.
+
+Peak memory (bytes) ≈ model_weights_bytes + peak_activation_bytes + working_buffer_bytes
+
+Estimate activations per layer: Hx × Wx × C × bytes_per_activation. Peak activation is usually the largest layer output tensor.
+
+Measurement-based approach (preferred)
+
+Run inference on a representative CPU/SoC (same processor class as your target edge device). If you don’t have the exact device, pick a CPU with similar core count/frequency or use a Raspberry Pi.
+
+Measure latency in code:
+
+import time # warmup for _ in range(10): model(x) # timed runs t0 = time.perf_counter() for _ in range(100): model(x) t1 = time.perf_counter() latency = (t1 - t0) / 100 
+
+Measure power during those runs:
+
+External power meter (most accurate): measure system power, run inference loop, subtract idle baseline.
+
+On Intel/AMD: use RAPL/perf counters. On ARM devices: powertop, upower, or board-specific sensors.
+
+Tools: pyJoules, perf, vendor SDKs, or a USB power meter for small boards.
+
+Compute energy: E = P_avg × latency. If you measured power during the whole timed loop, divide total energy by number of inferences.
+
+Report: accuracy, params (MB), FLOPs, latency (ms), energy (J), energy per inference (J), memory peak (MB).
+
+Model-based estimate (when you cannot measure power)
+
+Compute FLOPs and model size from model architecture (see formulas above).
+
+Choose or estimate an E_per_FLOP (Joules per FLOP). If you don’t have device-specific data, present a small range (e.g., 1e-9 to 1e-8 J/FLOP) and make clear it’s a range, not exact. (If you want exact numbers for a given SoC I can pull literature values.)
+
+Compute E_est = FLOPs × E_per_FLOP. Also compute energy per inference via E = P_est × latency if you can estimate P from CPU TDP fractions.
+
+Emulating edge constraints in simulation (if you cannot use a physical device)
+
+CPU throttling / limited cores: run inference with taskset or Docker CPU quota to limit available cores.
+
+Limit CPU frequency: use cpufreq-set to cap max frequency.
+
+Simulate memory limits: run in a container with limited memory (docker run --memory=256m) and check OOM or performance degradation.
+
+Inject background load: spawn CPU or memory tasks to emulate contention.
+
+Profile inference with these constraints and report latency and memory usage — this simulates edge behavior without physical hardware.
+
+Tools and commands (practical)
+
+Compute params & model size: frameworks usually provide total params (PyTorch sum(p.numel() for p in model.parameters())), then bytes = params * 4.
+
+FLOPs: use ptflops, thop for PyTorch or tf.profiler for TensorFlow to compute FLOPs automatically.
+
+Latency: time.perf_counter() in Python (average over many runs, discard first few warmups).
+
+Memory usage: psutil or framework profilers (PyTorch: torch.cuda.memory_allocated() for GPU; for CPU-level, use /proc/<pid>/status or psutil.Process().memory_info()).
+
+Power: external meter, or software counters like RAPL (intel-rapl), pyJoules, or vendor tools.
+
+Worked example (concrete numbers)
+
+Say you have a model with 1,000,000 parameters, using float32, FLOPs per inference = 200,000,000 (200M), and measured latency = 0.05 s (50 ms). Suppose during inference average power was 2.0 W.
+
+Calculations (digit-by-digit):
+
+Model size (bytes) = 1,000,000 × 4 = 4,000,000 bytes.
+Convert to MiB: 4,000,000 / (1024^2) = 3.814697265625 MiB.
+So ≈ 3.81 MiB for weights.
+
+Energy per inference (measured): E = P × latency = 2.0 × 0.05 = 0.1 joules.
+So 0.1 J per inference.
+
+Energy per FLOP = E / FLOPs = 0.1 / 200,000,000 = 5e-10 J/FLOP.
+So 5 × 10⁻¹⁰ J/FLOP for this measured scenario.
+
+(These numbers show the method — your measured P and latency will determine the real energy number.)
+
+How to present results in your paper/thesis
+
+Report a compact table per model:
+
+Model name | Params (M) | Size (MiB) | FLOPs | Latency (ms) | Peak memory (MiB) | Power (W) | Energy/infer (J) | Energy/FLOP (J)
+Include:
+
+Measurement conditions (device, OS, clock, batch size, warmup runs).
