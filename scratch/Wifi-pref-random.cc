@@ -196,7 +196,7 @@ ApplicationContainer InstallTraffic(WifiBss &b,uint16_t port,
 int main(int argc, char* argv[])
 {
   bool indoor=true; uint32_t nMin=5, nMax=30;
-  double area=50.0, sim=30.0, txP=16.0;
+  double area=50.0, sim=30.0, txP=20.0;
   bool inter=true; uint32_t seed=07;
   uint16_t port=9999; uint32_t pkt=1024; double intv=10.0;
   double change=5.0;

@@ -329,7 +329,7 @@ main(int argc, char *argv[])
     uint32_t nMin      = 5;
     uint32_t nMax      = 30;
     double   simTime   = 30.0;
-    double   txPower   = 16.0;
+    double   txPower   = 20.0;
     double   area      = 50.0;
     uint32_t seed      = 10;
     double   changeInt = 5.0;
